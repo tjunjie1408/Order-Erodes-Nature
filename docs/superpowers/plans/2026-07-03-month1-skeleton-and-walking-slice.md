@@ -178,6 +178,10 @@ git commit -m "chore: solution skeleton with SimCore classlib and xunit tests"
 4. `Simulation.Tick()` 及其调用链禁止分配：无 LINQ、无临时集合。
 5. 存档状态只含平凡值类型，禁止委托/Lambda 入档。
 6. 运行中的回路指令流只读；回路或结构模块变更一律复位 VM。
+7. 隐式分配黑名单：热路径禁止经接口类型 foreach（枚举器装箱）、
+   禁止 struct 转型接口（装箱）、禁止字符串插值/日志拼接。
+8. 入档浮点禁止小数位截断（截断=存档篡改仿真状态）；
+   依赖 System.Text.Json 的最短可往返格式保证位级往返。
 
 ## 项目结构
 - SimCore/ — 纯 C# 仿真核心（net8.0）
@@ -192,6 +196,8 @@ git commit -m "chore: solution skeleton with SimCore classlib and xunit tests"
 - 不确定的 Godot API 先查 https://docs.godotengine.org/en/stable/ 再动手。
 - 新增第三方依赖、跨模块重构、更改本文件规则：必须先经开发者批准。
 - 范围外的点子写进 docs/backlog.md，不实现。
+- 任务上下文只包含当前子系统代码与相邻子系统的接口契约，
+  不要求也不应阅读相邻子系统实现；发现接口不够用时上报而非自行改接口。
 
 ## 代码风格
 - C# 标准命名（PascalCase 公有、_camelCase 私有字段）

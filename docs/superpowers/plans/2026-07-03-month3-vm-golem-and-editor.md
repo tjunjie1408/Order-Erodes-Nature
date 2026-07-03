@@ -84,6 +84,7 @@ public sealed class CircuitVm
 }
 ```
 
+- **相对寻址节点（规格红线：玩家不手输绝对坐标）**：`NodeCatalog` 本月新增 `sensor_find_nearest_resource`（输出 nearest:Vector + found:Bool）与 `sensor_nearest_storage`（同构）；对应 OpCode `FindNearestResource`/`FindNearestStorage`（C=目标寄存器组基址，连续三个寄存器存 xyz，C+3 存 found）。VmIo 增加宿主填写的传感目标：`SensorNearestResX/Y/Z, SensorNearestResFound` 等字段（宿主每 tick 从仿真空间索引查询后填入）。`data_const_number` 拼坐标与编辑器坐标拾取保留为后备路径
 - 语义：可挂起指令（MoveTo/Harvest/Load/Unload/Wait）执行时把请求写入 `io` 并转 `Suspended`；下一 tick 开头若 `io.PendingActionResult == Done` 则 PC+1 继续，`InProgress` 则维持挂起，`Failed` 亦 PC+1 继续（MVP 简化：失败不崩溃，行为由回路自己用传感器判断）。非挂起指令连续执行，单 tick 超 256 条 → `Crashed`（记录 `CrashPc`）。`Wait` 由 VM 自己倒数（`WaitTicksRemaining` 内部状态），不经宿主。
 
 - [ ] **Step 1: 写失败测试**（手工构造 `Instruction[]` 直测 VM，不依赖编译器）
@@ -246,12 +247,20 @@ public sealed record VmCrashed(int GolemId, int CrashPc) : SimEvent;
 public void GolemProgrammedViaGraph_FillsStorage_OverTime()
 {
     // 布置：魔像(0,0,0)、资源点(5,0,0, amount=10)、储存碑(0,0,5)
-    // 构图：event_start → move_to(5,0,0) → harvest(5,0,0) → move_to(0,0,5) → unload → (编译器自动回跳)
+    // 构图（相对寻址，不硬编码坐标）：
+    //   event_start → move_to(target=sensor_find_nearest_resource.nearest)
+    //   → harvest(同上) → move_to(target=sensor_nearest_storage.nearest) → unload → (自动回跳)
     // 断言：2000 tick 后储存碑内货物 ≥ 3 且资源点 Amount 相应减少；VM 从未 Crashed
 }
 
 [Fact]
-public void ResourceExhausted_GolemKeepsCycling_WithFailedHarvests_NoCrash()
+public void ResourceExhausted_GolemFindsNextNode_Automatically()
+{
+    // 两个资源点，近的 amount=2 采完后，同一回路应自动转向远的那个——相对寻址的核心收益
+}
+
+[Fact]
+public void NoResourceLeft_GolemKeepsCycling_WithFailedHarvests_NoCrash()
 ```
 
 - [ ] **Step 2: 跑测试**——大概率暴露编译器/VM/魔像联动 bug，逐个修复直至绿。这是本月最重要的调试期，预留充足时间。
@@ -302,7 +311,7 @@ public void ResourceExhausted_GolemKeepsCycling_WithFailedHarvests_NoCrash()
 - Modify: `SimCore/Persistence/SaveData.cs`（新增 `List<GolemData>`：Id/位置/货物/`GraphJson`(刻录的图)/`ProgramCounter`/`WaitTicksRemaining`/`Status`/寄存器数组）、`SimCore/Simulation.cs`（快照含魔像；`FromSnapshot` 重编译 GraphJson 恢复程序——规格 §5：编译产物不进存档）
 - Test: `SimCore.Tests/SaveRoundTripTests.cs` 追加
 
-- [ ] **Step 1: 写失败测试**：`SuspendedGolem_SurvivesRoundTrip_AndResumesMidAction`（魔像移动中途存档→恢复→继续 tick 最终到达目标）；`RoundTrip_SnapshotJsonIdentical`（含魔像的快照 json 往返一致）
+- [ ] **Step 1: 写失败测试**：`SuspendedGolem_SurvivesRoundTrip_AndResumesMidAction`（魔像移动中途存档→恢复→继续 tick 最终到达目标）；`RoundTrip_SnapshotJsonIdentical`（含魔像的快照 json 往返一致）；`AdversarialFloats_RoundTripBitExact`（把魔像位置/寄存器设为 0.1f、1.0/3.0、1e-17 等对抗值 → json 往返位级一致。规格红线：**禁止用小数位截断"修"这个测试**——截断即存档改变仿真状态）
 - [ ] **Step 2: 实现** → **Step 3: 全绿** → **Step 4: Commit** `feat(sim): golem vm state survives save round-trip`
 
 ## 月末完成定义（= M2 验收）
