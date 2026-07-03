@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 同前全部铁律。新增：
-  - 信号表双缓冲：写入在 tick N，可读在 tick N+1；同频道多写者取**最大值**（确定性合流规则，简单且可解释——玩家文档口径"信号强度取最强"）
+  - **信号为锁存语义（规格 §5）**：频道值写入后保持，直到被覆写或显式清除——不因写者停止发信而消失（协程挂起的魔像无法每 tick 维持发信，非锁存语义会导致信号断崖）。双缓冲：写入在 tick N，可读在 tick N+1；同 tick 多写者取**最大值**；未写频道**保留旧值**（不清零）
   - 存档文件带 `Version` 字段；`FromJson` 遇低版本走迁移函数链（本月只需 v1→v2 一个真实迁移作为骨架验证）
 
 ## 任务清单
@@ -26,18 +26,19 @@
 ```csharp
 public sealed class SignalBoard
 {
-    public void Write(int channel, double value);   // 写入后缓冲
-    public double Read(int channel);                // 读前缓冲，未写过=0
-    public void Flip();                             // tick 边界交换
+    public void Write(int channel, double value);   // 写入后缓冲（同tick取max合流）
+    public void Clear(int channel);                 // 显式归零（下tick生效）
+    public double Read(int channel);                // 读当前锁存值，从未写过=0
+    public void Flip();                             // tick 边界：把本tick写入合并进锁存表
 }
 ```
-测试清单：`WriteIsInvisibleUntilFlip`、`MultipleWriters_MaxWins`、`UnwrittenChannel_ReadsZero`、`Board_SurvivesSaveRoundTrip`
+测试清单：`WriteIsInvisibleUntilFlip`、`MultipleWriters_MaxWins`、`NeverWrittenChannel_ReadsZero`、`LatchedValue_PersistsWithoutRewrites`（写一次后连续 Flip 100 次仍可读——锁存核心）、`Clear_ZeroesChannel_NextTick`、`Board_SurvivesSaveRoundTrip`
 
 Commit: `feat(signals): double-buffered world signal board`
 
 ### Task 2: 信号节点与 OpCode（TDD）
 
-**Files:** Modify `NodeCatalog`（+3 节点：`event_on_signal`(收到信号时,内联参数channel+阈值)、`data_read_signal`(读信号:channel→Number)、`action_send_signal`(发信号:channel,value)）、`OpCode`（+ReadSignal/SendSignal）、编译器（多事件入口支持：`CompiledCircuit` 增加 `List<(int channel, double threshold, int entryPc)> SignalEntries`；VM 空闲时若信号越阈值则从对应入口启动）、`CircuitVm`
+**Files:** Modify `NodeCatalog`（+4 节点：`event_on_signal`(收到信号时,内联参数channel+阈值)、`data_read_signal`(读信号:channel→Number)、`action_send_signal`(发信号:channel,value)、`action_clear_signal`(清除信号:channel——锁存语义的配套，保持"绝对段落感")）、`OpCode`（+ReadSignal/SendSignal/ClearSignal）、编译器（多事件入口支持：`CompiledCircuit` 增加 `List<(int channel, double threshold, int entryPc)> SignalEntries`；VM 空闲时若信号越阈值则从对应入口启动）、`CircuitVm`
 - Test：编译器多入口用例 + VM 信号触发用例（`IdleVm_StartsAtSignalEntry_WhenChannelCrossesThreshold`、`RunningVm_IgnoresSignalEntries`——运行中不被抢占，MVP 简化规则）
 
 Commit: `feat(circuits): signal nodes with multi-entry programs`

@@ -50,7 +50,7 @@
 
 ### Task 5: 故障美学（VmCrashed 的视觉化）
 
-**Files:** Create `game/shaders/glitch_corruption.gdshader`（乱码噪点侵蚀表面）、`game/shaders/space_distortion.gdshader`（崩溃结构周围引力透镜式屏幕空间扭曲——规格氛围机制第 1 条）、`game/scripts/CrashVfx.cs`（监听 `VmCrashed`/`Reset` 事件挂载/移除效果）
+**Files:** Create `game/shaders/glitch_corruption.gdshader`（乱码噪点侵蚀表面——逐实体材质，安全）、`game/shaders/space_distortion.gdshader`（引力透镜扭曲——**规格实现红线：全局唯一后处理 Pass**，禁止逐实体挂屏幕空间材质（30 台同时崩溃 = 30 层全屏采样的 Overdraw 灾难）；崩溃坐标经 `uniform vec3 crash_positions[16]` + `uniform int crash_count` 传入，按距相机排序截断，一次全屏计算全部透镜）、`game/scripts/CrashVfx.cs`（监听 `VmCrashed`/`Reset` 事件：维护崩溃坐标数组喂给全局 Pass + 逐实体挂 glitch_corruption）
 - 编辑器侧：崩溃时 CrashPc 对应节点持续猩红闪烁 + 错误说明（"回路陷入无限递归"）
 - 验收：刻录死循环回路 → 魔像悬停原地、表面乱码、空间扭曲、编辑器定位崩溃节点；Reset 后恢复；Commit `feat(vfx): rational collapse glitch aesthetics`
 

@@ -1005,6 +1005,7 @@ git commit -m "feat(game): gray-box third-person character controller"
 **Interfaces:**
 - Consumes: `SimDriver.Sim`、`SimDriver.SimEventEmitted`、`Simulation.CanPlace`、`PlaceStructureCommand`/`RemoveStructureCommand`、玩家相机 `Player/Yaw/SpringArm3D/Camera3D`
 - Produces: 完整的 M1 建造体验：屏幕中心射线指向地面/方块 → 幽灵方块吸附网格（可放=半透明蓝，不可放=半透明红）→ 左键放置、右键拆除 → 方块视图由仿真事件驱动生成/销毁（`Dictionary<int, MeshInstance3D>` 以 StructureId 为键）
+- **客户端预测缓存（规格 §4）**：维护 `HashSet<GridPos> _pendingCells`——发出放置/拆除指令的瞬间加入（`CanPlaceLocally(cell) = Sim.CanPlace(cell) && !_pendingCells.Contains(cell)`，预览与点击一律用它），收到该格的 `StructurePlaced`/`StructureRemoved`/`CommandRejected` 后移除。封死"60fps 连点 vs 20tps 确认"空窗期的重复指令与幽灵闪烁
 
 - [ ] **Step 1: 写 BuildController**
 

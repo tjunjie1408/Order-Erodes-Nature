@@ -85,6 +85,7 @@ public sealed class CircuitVm
 ```
 
 - **相对寻址节点（规格红线：玩家不手输绝对坐标）**：`NodeCatalog` 本月新增 `sensor_find_nearest_resource`（输出 nearest:Vector + found:Bool）与 `sensor_nearest_storage`（同构）；对应 OpCode `FindNearestResource`/`FindNearestStorage`（C=目标寄存器组基址，连续三个寄存器存 xyz，C+3 存 found）。VmIo 增加宿主填写的传感目标：`SensorNearestResX/Y/Z, SensorNearestResFound` 等字段（宿主每 tick 从仿真空间索引查询后填入）。`data_const_number` 拼坐标与编辑器坐标拾取保留为后备路径
+- **传感器使用掩码（规格"传感器成本模型"）**：`CompiledCircuit` 增加 `SensorMask Sensors { get; init; }`（`[Flags] enum SensorMask : uint { None=0, Cargo=1, NearestResource=2, NearestStorage=4 }`，编译器扫描指令自动置位）；宿主填 VmIo 前查掩码，程序没用到的昂贵空间查询直接跳过。补编译器测试：`SensorMask_ReflectsUsedSensorsOnly`
 - 语义：可挂起指令（MoveTo/Harvest/Load/Unload/Wait）执行时把请求写入 `io` 并转 `Suspended`；下一 tick 开头若 `io.PendingActionResult == Done` 则 PC+1 继续，`InProgress` 则维持挂起，`Failed` 亦 PC+1 继续（MVP 简化：失败不崩溃，行为由回路自己用传感器判断）。非挂起指令连续执行，单 tick 超 256 条 → `Crashed`（记录 `CrashPc`）。`Wait` 由 VM 自己倒数（`WaitTicksRemaining` 内部状态），不经宿主。
 
 - [ ] **Step 1: 写失败测试**（手工构造 `Instruction[]` 直测 VM，不依赖编译器）
@@ -192,7 +193,8 @@ public class CircuitVmTests
 - Produces:
 
 ```csharp
-public readonly record struct SimVec3(float X, float Y, float Z);
+// 规格"数值类型统一"：SimCore 内浮点一律 double，float 只存在于表现层边界
+public readonly record struct SimVec3(double X, double Y, double Z);
 
 // 指令新增
 public sealed record SpawnGolemCommand(SimVec3 Position) : ICommand;

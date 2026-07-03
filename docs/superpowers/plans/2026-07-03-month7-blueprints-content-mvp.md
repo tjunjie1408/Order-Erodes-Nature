@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 同前全部铁律。新增：编译缓存以 BlueprintId 为键，蓝图修改 = 生成新版本缓存并对所有引用者 `Vm.Reset()`（运行时只读铁律的舰队级推广）
+- 同前全部铁律。新增（规格"蓝图更新是惰性且安全的"）：编译缓存以 BlueprintId 为键；**直接对单机刻录 = 立即 Reset（编辑者明确意图）；蓝图修改 = 引用者仅标记 `PendingUpdate`**，在 PC 回到程序入口（天然循环边界）时静默切换新指令流，崩溃态/手动 Reset 时也切换——禁止对舰队瞬间集体 Reset（半空中的运输魔像会僵死、载货的会拿着货重跑初始逻辑）
 
 ## 任务清单
 
@@ -22,7 +22,10 @@
 
 测试清单：
 - `SaveBlueprint_CompilesOnce_SharedAcrossGolems`（两魔像刻同一蓝图，`CompiledCircuit` 引用相等）
-- `EditBlueprint_ResetsAllSubscribedVms`
+- `EditBlueprint_MarksSubscribersPending_WithoutImmediateReset`（正在执行动作的引用者不被打断）
+- `PendingSubscriber_SwapsAtLoopBoundary`（PC 回到入口时切换新指令流，货物与位置保留）
+- `CrashedSubscriber_SwapsOnReset`
+- `PendingUpdate_SurvivesSaveRoundTrip`（半切换状态入档往返）
 - `DeleteBlueprintInUse_IsRejected`（错误码 `blueprint_in_use`）
 - `V2Save_MigratesGolemGraphsToImplicitBlueprints`
 
@@ -39,7 +42,7 @@ Commit: `feat(blueprints): named circuit library with shared compilation`
 ### Task 3: 内容补足（数据表工作）
 
 **Files:** Modify `NodeCatalog`/`ModuleCatalog`/`RecipeCatalog`——补至规格量：
-- 节点补至 ≥15：已有 13（月2 的 10 + 月6 的 3；测试专用节点不计）→ 补 `data_arith`（加减乘）、`data_counter`（计数器，VM 局部状态）、`action_toggle_structure`（启停目标结构）、`sensor_detect_items`（探测范围物品数）
+- 节点补至目标量：已有 16（月2 的 10 + 月3 的 2 个相对寻址传感 + 月6 的 4；测试专用节点不计），≥15 已达标——本月按体验缺口补 `data_arith`（加减乘）、`data_counter`（计数器，VM 局部状态）、`action_toggle_structure`（启停目标结构）、`sensor_detect_items`（探测范围物品数），共 20 个
 - 模块补至 ≥10：已有 9 → 补 `module_beacon`（信标，可配置广播）、高级模块 `module_overclock_core`（Tier4：速度 ×2、能耗 ×3——给 Tier4 一个值得攒 20 碎片的理由）
 - 每个新节点/模块：目录定义 + 编译器/VM 支持（如需新 OpCode）+ 单测 + 灰盒→正式模型（复用 M4 管线）+ 音效绑定
 - 配方微调：保证三层解锁的碎片曲线可在 3-5 小时通完（试玩标定）
