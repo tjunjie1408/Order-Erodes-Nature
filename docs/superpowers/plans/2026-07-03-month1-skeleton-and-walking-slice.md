@@ -10,7 +10,7 @@
 
 **规格来源:** `docs/superpowers/specs/2026-07-03-magic-automation-game-design.md`
 
-## 月度路线图（本文档只详细展开第 1 个月）
+## 月度路线图（全部 7 份计划见本目录 [README.md](README.md)）
 
 | 月 | 对应里程碑 | 内容概要 |
 |---|---|---|
