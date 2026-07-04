@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Godot
+game/.godot/
+game/*.translation
+.mono/
+
+# Local tooling
+.worktrees/
+.codegraph/
+
+# OS
+Thumbs.db
+.DS_Store
