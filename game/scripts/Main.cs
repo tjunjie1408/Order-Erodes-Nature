@@ -17,6 +17,7 @@ public partial class Main : Node3D
             RotationDegrees = new Vector3(-20, 0, 0),
             Current = true,
         });
+        AddChild(BuildPlayer());
     }
 
     public override void _Process(double delta)
@@ -53,5 +54,31 @@ public partial class Main : Node3D
             ShadowEnabled = true,
         };
         AddChild(sun);
+    }
+
+    private static PlayerController BuildPlayer()
+    {
+        var player = new PlayerController { Name = "Player" };
+        player.AddChild(new CollisionShape3D
+        {
+            Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.8f },
+            Position = new Vector3(0, 0.9f, 0),
+        });
+        player.AddChild(new MeshInstance3D
+        {
+            Mesh = new CapsuleMesh { Radius = 0.4f, Height = 1.8f },
+            Position = new Vector3(0, 0.9f, 0),
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.9f, 0.55f, 0.2f),
+            },
+        });
+        var yaw = new Node3D { Name = "Yaw", Position = new Vector3(0, 1.5f, 0) };
+        var arm = new SpringArm3D { Name = "SpringArm3D", SpringLength = 5.0f };
+        arm.AddChild(new Camera3D { Name = "Camera3D", Current = true });
+        yaw.AddChild(arm);
+        player.AddChild(yaw);
+        player.Position = new Vector3(0, 1.0f, 0);
+        return player;
     }
 }
