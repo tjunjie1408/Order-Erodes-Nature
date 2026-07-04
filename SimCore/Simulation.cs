@@ -1,3 +1,5 @@
+using SimCore.Persistence;
+
 namespace SimCore;
 
 public sealed class Simulation
@@ -30,6 +32,49 @@ public sealed class Simulation
     {
         into.AddRange(_events);
         _events.Clear();
+    }
+
+    public SaveData CreateSnapshot()
+    {
+        var data = new SaveData
+        {
+            TickCount = TickCount,
+            NextStructureId = _nextStructureId,
+        };
+        foreach (var id in _byId.Keys.Order())
+        {
+            var structure = _byId[id];
+            data.Structures.Add(new StructureData
+            {
+                Id = structure.Id,
+                Type = structure.Type,
+                X = structure.Position.X,
+                Y = structure.Position.Y,
+                Z = structure.Position.Z,
+            });
+        }
+        return data;
+    }
+
+    public static Simulation FromSnapshot(SaveData data)
+    {
+        var sim = new Simulation
+        {
+            TickCount = data.TickCount,
+            _nextStructureId = data.NextStructureId,
+        };
+        foreach (var structureData in data.Structures)
+        {
+            var structure = new Structure
+            {
+                Id = structureData.Id,
+                Type = structureData.Type,
+                Position = new GridPos(structureData.X, structureData.Y, structureData.Z),
+            };
+            sim._byPos[structure.Position] = structure;
+            sim._byId[structure.Id] = structure;
+        }
+        return sim;
     }
 
     private void Apply(ICommand command)
