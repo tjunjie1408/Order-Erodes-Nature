@@ -1,236 +1,236 @@
-# 《秩序侵蚀自然》（工作名）游戏设计文档
+# *Order Erodes Nature* (working title) Game Design Document
 
-日期：2026-07-03
-状态：已通过头脑风暴评审，待实现计划
+Date: 2026-07-03
+Status: approved via brainstorming review, pending implementation plans
 
-## 1. 项目背景与约束
+## 1. Project Background and Constraints
 
-- 开发者：一名有实际产品开发经验的学生，业余时间开发，OpenAI Codex 作为主要实现助手
-- 性质：长期兴趣项目（1-2 年迭代），无硬性截止日期，最终目标是一款完整可玩的游戏
-- 素材预算：百元级（美元），同时愿意自学 Blender 建模与 shader 编写
-- 平台：Windows 桌面（Godot 跨平台导出顺带支持 Mac/Linux）
-- 联机：纯单机，架构不为多人预留
-- 叙事：无叙事，纯玩法驱动，氛围由美术语言传达
+- Developer: a student with real product development experience, developing in spare time, with OpenAI Codex as the primary implementation assistant
+- Nature: long-term hobby project (1-2 years of iteration), no hard deadline, ultimate goal is a complete playable game
+- Asset budget: on the order of a hundred (US dollars), while also willing to self-learn Blender modeling and shader writing
+- Platform: Windows desktop (Godot cross-platform export incidentally supports Mac/Linux)
+- Multiplayer: strictly single-player, architecture makes no provisions for multiplayer
+- Narrative: no narrative, pure gameplay-driven; atmosphere conveyed through art language
 
-## 2. 游戏概念
+## 2. Game Concept
 
-### 一句话概念
+### One-Sentence Concept
 
-玩家扮演建造者，在一片温暖的低多边形自然大陆上，用冰冷的几何巨构建立全自动生产体系；每台机器的行为由玩家通过节点连线（符文回路）编程定义。
+The player is a builder who, on a warm low-poly natural continent, uses cold geometric megastructures to establish a fully automated production system; each machine's behavior is defined by the player through node-graph wiring (rune circuits).
 
-### 类型定位
+### Genre Positioning
 
-3D 模拟建造 + 自动化工厂 + 编程玩法。参考系：Minecraft Create 模组（多方块拼装）、Factorio（生产链与信号）、The Farmer Was Replaced（给单位编程干活）、UE Blueprint（节点编程交互范式）。
+3D simulation building + automation factory + programming gameplay. Reference points: the Minecraft Create mod (multi-block assembly), Factorio (production chains and signals), The Farmer Was Replaced (programming units to do work), UE Blueprint (node-programming interaction paradigm).
 
-### 美术主题：秩序侵蚀自然
+### Art Theme: Order Erodes Nature
 
-- 世界：有机、温暖的风格化低多边形自然大陆（固定地形，不可挖掘）
-- 玩家造物：冷酷的几何巨构——黑曜石碑、悬浮白色多面体、锐利能量导轨；无机械咬合，全部磁悬浮式运转
-- 对比即主题：自动化体系扩张时，冷逻辑几何在自然大陆上蔓延，画面自身完成表达，无需文本
-- 逻辑错误的呈现是"理性的崩溃"：数据流扭曲成混沌分形、几何体表面浮现乱码噪点——既是美学奇观也是 debug 反馈
-- 氛围机制（已采纳概念，M4 起分批落地）：
-  - 死循环/逻辑死锁时，崩溃结构周围空间发生引力透镜式扭曲（shader，M4）。**实现红线**：屏幕空间扭曲禁止逐实体挂材质（30 台机器同时崩溃 = 30 层全屏采样的 Overdraw 灾难）——全局唯一的后处理 Pass，崩溃坐标经 `uniform vec3[]` 数组传入（上限 16 个、按距相机排序截断），一次全屏计算所有透镜效果
-  - 崩溃结构周边的自然植被枯萎、沙化——理性的崩溃异化其赖以生存的自然（后 MVP，进 backlog）
-  - 真理碎片的解锁交互不做传统科技树面板，而是一座巨大冰冷的核心矩阵：玩家把碎片填装进去，只有清脆的机械卡扣声，随后一片区域被"格式化"为无菌绝对网格（后 MVP，进 backlog；MVP 先用简单面板占位）
+- World: an organic, warm, stylized low-poly natural continent (fixed terrain, not diggable)
+- Player creations: cold geometric megastructures — obsidian monoliths, floating white polyhedra, sharp energy conduits; no mechanical meshing, everything operates via magnetic levitation
+- The contrast is the theme: as the automation system expands, cold-logic geometry spreads across the natural continent — the picture itself carries the expression, no text needed
+- Logic errors are presented as "rational collapse": data flows twist into chaotic fractals, garbled noise surfaces on geometric bodies — both an aesthetic spectacle and debug feedback
+- Atmosphere mechanics (concepts adopted; landed in batches starting from M4):
+  - During infinite loops / logic deadlocks, the space around the crashed structure undergoes gravitational-lensing-style distortion (shader, M4). **Implementation red line**: screen-space distortion must NOT attach a material per entity (30 machines crashing simultaneously = an Overdraw disaster of 30 layers of full-screen sampling) — a single global post-processing pass, with crash coordinates passed in via a `uniform vec3[]` array (capped at 16 entries, truncated after sorting by distance to camera), computing all lens effects in one full-screen pass
+  - Natural vegetation around crashed structures withers and desertifies — rational collapse corrupts the very nature it depends on (post-MVP, goes to backlog)
+  - The unlock interaction for truth shards is not a traditional tech-tree panel but a huge, cold core matrix: the player slots shards into it, with only a crisp mechanical click sound, after which a region is "formatted" into a sterile absolute grid (post-MVP, goes to backlog; MVP uses a simple placeholder panel)
 
-### 核心循环
+### Core Loop
 
-探索地形发现资源点 → 给魔像编写回路（采集/搬运）→ 拼装固定结构固化产线 → 接入魔力泉供能 → 产出真理碎片解锁更强的模块与节点 → 用信号系统协调多魔像舰队 → 扩大规模，面对更复杂的逻辑挑战。
+Explore terrain to discover resource nodes → write circuits for golems (harvesting/hauling) → assemble fixed structures to solidify production lines → hook into mana springs for power → produce truth shards to unlock stronger modules and nodes → use the signal system to coordinate multi-golem fleets → scale up and face more complex logic challenges.
 
-### 视角与角色
+### Camera and Character
 
-第三人称真实角色（可行走、跳跃），交互射线对准结构打开面板/回路编辑器。不做第一人称挖掘、不做体素地形。
+Third-person real character (can walk, jump), with an interaction ray aimed at structures to open panels / the circuit editor. No first-person digging, no voxel terrain.
 
-**角色与仿真实体的碰撞约定**：角色跑在 Godot 物理帧率，魔像跑在 20tps 仿真——两者频率不同，不做真实刚体互动（否则抖动/穿模无解）。魔像和机器在表现层挂一个运动学碰撞体（Kinematic），位置每帧跟随插值后的视觉位置，只用于阻挡玩家行走，不参与任何仿真计算；角色对机器的一切交互走射线检测。
+**Character-vs-simulation-entity collision convention**: the character runs at Godot's physics frame rate, golems run at the 20tps simulation — the two frequencies differ, so no real rigid-body interaction (otherwise jitter/clipping is unsolvable). Golems and machines carry a kinematic collision body in the presentation layer, whose position follows the interpolated visual position each frame; it is used only to block the player's walking and participates in no simulation computation whatsoever; all character interaction with machines goes through ray casting.
 
-## 3. 技术选型
+## 3. Technology Choices
 
-| 项目 | 决定 | 理由 |
+| Item | Decision | Rationale |
 |---|---|---|
-| 引擎 | Godot 4.x（.NET 版） | GraphEdit 是运行时 UI 控件，玩家可用的节点编辑器开箱即用（Unity 的 GraphView 是 UnityEditor 命名空间，无法打包进游戏）；免费开源；场景为文本格式，对 AI 协作友好 |
-| 语言 | C# | 仿真性能足够支撑上万实体；Codex 对 C# 语料极熟；纯 C# 类库可脱离引擎测试 |
-| 已否决 | Unity（运行时节点编辑器需自建）、Unreal（迭代慢、AI 辅助出错率高、与风格化单人项目错配） | |
+| Engine | Godot 4.x (.NET edition) | GraphEdit is a runtime UI control — a player-usable node editor out of the box (Unity's GraphView lives in the UnityEditor namespace and cannot be packaged into the game); free and open source; scenes are text format, friendly to AI collaboration |
+| Language | C# | Simulation performance is sufficient to support tens of thousands of entities; Codex is extremely familiar with the C# corpus; a pure C# class library can be tested independently of the engine |
+| Rejected | Unity (a runtime node editor would have to be built from scratch), Unreal (slow iteration, high AI-assistance error rate, mismatched with a stylized single-player project) | |
 
-## 4. 架构
+## 4. Architecture
 
-### 核心原则：仿真与表现分离
+### Core Principle: Separation of Simulation and Presentation
 
-游戏的"真相"存在于不依赖引擎的纯 C# 仿真核心（SimCore）中，Godot 只负责渲染与输入。收益：逻辑可headless单元测试（Codex 自闭环验证）、性能可控、渲染可独立重构。
+The game's "truth" lives in an engine-independent pure C# simulation core (SimCore); Godot is responsible only for rendering and input. Benefits: logic can be unit-tested headless (Codex self-closed verification loop), performance is controllable, rendering can be refactored independently.
 
-### 解决方案结构
+### Solution Structure
 
 ```
 dev_game.sln
-├── game/          Godot 项目（场景、shader、表现层脚本，引用 SimCore）
-├── SimCore/       纯 C# 类库（net8.0，禁止 import Godot）
-└── SimCore.Tests/ xUnit 测试项目
+├── game/          Godot project (scenes, shaders, presentation-layer scripts, references SimCore)
+├── SimCore/       Pure C# class library (net8.0, importing Godot is forbidden)
+└── SimCore.Tests/ xUnit test project
 ```
 
-### 六模块划分
+### Six-Module Breakdown
 
-1. **SimCore（仿真核心）**：固定步长 tick（20tps）驱动机器状态机、能量网络、物品流、配方加工、回路虚拟机。输入指令，输出状态与事件。单元测试覆盖重点。
-2. **符文回路系统**：数据模型与虚拟机在 SimCore；编辑界面基于 GraphEdit 定制，只编辑图并提交。GraphEdit 是纯 UI 容器，不懂逻辑——中间必须有一个**回路编译器**：编辑器把 UI 拓扑序列化为纯数据的图描述（节点列表+连线列表），编译器（住在 SimCore 里，可单元测试）校验后产出扁平指令数组。校验必须严密：执行线成环、数据线类型不匹配、必填引脚悬空、不可达节点——全部返回带节点定位的错误列表，编辑器据此标红，校验不过不允许刻录。
-3. **世界与建造**：固定地形场景、网格化摆放（幽灵预览、吸附、合法性校验）、资源点分布。建造操作生成指令发给 SimCore。
-4. **角色**：CharacterBody3D 第三人称控制器 + 交互射线。
-5. **表现层**：监听 SimCore 状态与事件，驱动模型、shader 参数、粒子、音效；tick 间插值保证视觉丝滑；渲染故障美学。
-6. **存档**：序列化 SimCore 状态（JSON 起步，规模大后换二进制）。存档不只含建筑位置，还含所有运行中的 VM 状态——见"回路执行模型"中的可序列化约定（全部为平凡值类型，回路编译产物不进存档）。
+1. **SimCore (simulation core)**: fixed-timestep tick (20tps) driving machine state machines, energy networks, item flow, recipe processing, and the circuit virtual machine. Takes commands as input, outputs state and events. The focus of unit test coverage.
+2. **Rune circuit system**: the data model and virtual machine live in SimCore; the editing interface is a customized GraphEdit that only edits the graph and submits it. GraphEdit is a pure UI container and understands no logic — a **circuit compiler** must sit in between: the editor serializes the UI topology into a pure-data graph description (node list + connection list), and the compiler (living inside SimCore, unit-testable) validates it and produces a flat instruction array. Validation must be strict: cycles in execution wires, type mismatches on data wires, required pins left dangling, unreachable nodes — all must return an error list with node locations, which the editor uses to highlight nodes in red; inscription is not allowed unless validation passes.
+3. **World and building**: fixed terrain scene, grid-based placement (ghost preview, snapping, legality validation), resource node distribution. Building operations generate commands sent to SimCore.
+4. **Character**: CharacterBody3D third-person controller + interaction ray.
+5. **Presentation layer**: listens to SimCore state and events; drives models, shader parameters, particles, sound effects; inter-tick interpolation keeps visuals silky; renders the glitch aesthetics.
+6. **Save system**: serializes SimCore state (JSON to start, switch to binary once scale grows). Saves contain not just building positions but also all running VM state — see the serializability convention in "Circuit Execution Model" (everything is trivial value types; circuit compilation artifacts do not go into saves).
 
-### 数据流（单向）
+### Data Flow (One-Way)
 
-玩家输入 → 指令对象入队 → SimCore 在 tick 边界消费指令并演算 → 状态变更与事件 → 表现层读取渲染。表现层永不直接写仿真状态。
+Player input → command objects enqueued → SimCore consumes commands at tick boundaries and computes → state changes and events → presentation layer reads and renders. The presentation layer never writes simulation state directly.
 
-**例外澄清——高频交互前置到表现层**：建造预览（幽灵建筑）、网格吸附、射线检测这类需要即时响应的交互，由表现层以渲染帧率完全前置计算，不等待 SimCore。玩家确认建造的瞬间才发送 `TryPlaceStructureCommand`；SimCore 校验通过后抛出 `StructurePlacedEvent`，表现层再把幽灵建筑固化为正式渲染网格。预览用的合法性判断逻辑与 SimCore 共享同一套纯函数（放在 SimCore 内、表现层直接调用只读校验），避免两套规则漂移。
+**Exception clarification — high-frequency interactions front-loaded to the presentation layer**: interactions that need instant response, such as build preview (ghost buildings), grid snapping, and ray casting, are fully computed up front by the presentation layer at render frame rate, without waiting for SimCore. Only at the instant the player confirms the build is a `TryPlaceStructureCommand` sent; after SimCore validates it, it emits a `StructurePlacedEvent`, and the presentation layer then solidifies the ghost building into an official rendered mesh. The legality-check logic used by the preview shares the same set of pure functions with SimCore (placed inside SimCore, called directly by the presentation layer for read-only validation), avoiding drift between two rule sets.
 
-**客户端预测缓存（60fps 交互 vs 20tps 确认的竞态封口）**：指令发出到 tick 确认之间有最多 50ms 空窗，连点/快速拖动会对同一格重复发指令、幽灵闪烁。BuildController 维护一个 pending 格子集合：发出放置/拆除指令的瞬间将格子标记 pending（预览与点击将其视为已占用/已拆除），收到对应的 `StructurePlaced`/`StructureRemoved`/`CommandRejected` 事件后释放。反馈保持"机械键盘般干脆"，且不产生重复指令噪音。
+**Client-side prediction cache (sealing the 60fps-interaction vs 20tps-confirmation race)**: between a command being issued and its tick confirmation there is a window of up to 50ms; rapid clicking / fast dragging would issue duplicate commands for the same cell and cause ghost flicker. The BuildController maintains a pending cell set: the instant a place/remove command is issued, the cell is marked pending (preview and clicks treat it as occupied/removed), and it is released upon receiving the corresponding `StructurePlaced`/`StructureRemoved`/`CommandRejected` event. Feedback stays "mechanical-keyboard-crisp" and no duplicate-command noise is generated.
 
-### 落地机制
+### Grounding Mechanisms
 
-- **固定 tick**：主循环时间累加器，攒够 50ms 调一次 `SimCore.Tick()`，仿真与帧率解耦
-- **插值**：SimCore 保留上一 tick 与当前 tick 两份位置，表现层按帧时间比例线性插值
-- **事件**：SimCore 抛入事件列表，表现层每帧取走播表现
+- **Fixed tick**: a time accumulator in the main loop; once 50ms has accumulated, call `SimCore.Tick()` once, decoupling simulation from frame rate
+- **Interpolation**: SimCore keeps two copies of positions — previous tick and current tick; the presentation layer linearly interpolates by frame-time ratio
+- **Events**: SimCore pushes into an event list; the presentation layer drains it each frame and plays the presentation
 
-### 性能设计
+### Performance Design
 
-- 机器数据用数组/struct 存储，tick 为平铺遍历；热路径零分配（无 LINQ、无 new），防 GC 卡顿
-- 回路在编辑完成时编译为带跳转的扁平指令数组，运行时不解释对象图
-- 能量网络与多方块结构的连通性拓扑仅在建造/拆除的那个 tick 同步重算一次，绝不进入每 tick 热路径：拆除方块用局部 BFS/洪水填充判断结构是否分裂（一台机器裂为两台），从受影响格子出发只扫局部而非全图；结构最大尺寸设上限（几十格量级），保证最坏情况可控
-- 渲染瓶颈预案：机器不挂场景树，后期用 MultiMesh 实例化批量绘制
-- 量级预期：20tps 下数万台机器无压力，长期瓶颈在渲染而非仿真
-- **C# 隐式分配黑名单**（AI 意识不到的零分配杀手，代码审查重点）：经接口类型（`IEnumerable<T>`/`IReadOnlyCollection<T>`）foreach 会装箱枚举器——热路径只遍历具体类型的字段；struct 转型为接口即装箱——指令/事件保持 class record 或避免接口转型；热路径禁止字符串插值与日志拼接。每月月末验收含一次人工扫描：用 Rider Heap Allocation Viewer（或 dotnet-counters 观察 GC 频率）过一遍 `Simulation.Tick()` 调用树
-- **浮点确定性口径**：System.Text.Json 对 float/double 使用最短可往返格式，存读档往返是位级精确的——用对抗性数值（0.1、1.0/3.0、1e-17）的精确往返测试锁死该行为；**禁止对入档浮点做小数位截断**（截断=每次存档都在改变仿真状态，漂移随存读累积）。若未来需要跨机器共享存档/回放级的确定性，预案是仿真层改定点数（int 千分位），当前单机范围不做
-- **数值类型统一**：SimCore 内浮点一律 `double`（SimVec3、VM 寄存器、VmIo、传感值），消灭内部 float↔double 转换点（C# 字面量默认 double，混用是隐式转换与精度困惑的温床）。与 Godot `Vector3`(float) 的转换只发生在表现层边界，且表现层数据永不回流仿真，故无害
-- **传感器成本模型**：VM 的 ReadSensor 指令只是从 VmIo 复制寄存器值；昂贵的空间查询由宿主在每 tick 填 VmIo 时执行一次。编译器在 CompiledCircuit 中产出**传感器使用掩码**，宿主只计算程序实际用到的传感器，未用的昂贵查询直接跳过
+- Machine data stored in arrays/structs; the tick is a flat traversal; the hot path is zero-allocation (no LINQ, no new) to prevent GC stutter
+- Circuits are compiled at edit-completion time into flat instruction arrays with jumps; the runtime does not interpret object graphs
+- Connectivity topology for energy networks and multi-block structures is synchronously recomputed only once, in the tick where a build/removal happens, and never enters the per-tick hot path: removing a block uses local BFS/flood fill to determine whether the structure splits (one machine splitting into two), scanning only locally outward from the affected cells rather than the whole graph; structures have a maximum size cap (on the order of a few dozen cells), keeping the worst case controllable
+- Rendering bottleneck contingency: machines are not attached to the scene tree; later use MultiMesh instancing for batched drawing
+- Scale expectation: tens of thousands of machines at 20tps with no pressure; the long-term bottleneck is rendering, not simulation
+- **C# hidden-allocation blacklist** (zero-allocation killers the AI is unaware of; a code review focus): foreach over interface types (`IEnumerable<T>`/`IReadOnlyCollection<T>`) boxes the enumerator — the hot path iterates only fields of concrete types; casting a struct to an interface is boxing — commands/events stay as class records or avoid interface casts; string interpolation and log concatenation are forbidden on the hot path. Each month-end acceptance includes one manual scan: sweep the `Simulation.Tick()` call tree with Rider Heap Allocation Viewer (or observe GC frequency with dotnet-counters)
+- **Floating-point determinism stance**: System.Text.Json uses the shortest round-trippable format for float/double, so save/load round-trips are bit-exact — lock this behavior down with exact round-trip tests using adversarial values (0.1, 1.0/3.0, 1e-17); **decimal truncation of floats going into saves is forbidden** (truncation = every save mutates simulation state, and drift accumulates across save/load cycles). If cross-machine save sharing / replay-grade determinism is ever needed, the contingency is switching the simulation layer to fixed-point (int, thousandths); not done within the current single-player scope
+- **Numeric type unification**: within SimCore, floating point is uniformly `double` (SimVec3, VM registers, VmIo, sensor values), eliminating internal float↔double conversion points (C# literals default to double; mixing them is a breeding ground for implicit conversions and precision confusion). Conversion to Godot's `Vector3` (float) happens only at the presentation-layer boundary, and presentation-layer data never flows back into the simulation, so it is harmless
+- **Sensor cost model**: the VM's ReadSensor instruction merely copies a register value from VmIo; expensive spatial queries are executed once by the host when filling VmIo each tick. The compiler produces a **sensor usage mask** in the CompiledCircuit, so the host computes only the sensors the program actually uses; unused expensive queries are skipped outright
 
-### 错误处理哲学
+### Error-Handling Philosophy
 
-回路的逻辑错误（死循环、类型不匹配、能量不足）是游戏内容：机器进入崩溃态，视觉呈现故障美学，回路面板标红出错节点及原因。仿真核心自身的 bug 靠单元测试拦截。
+Logic errors in circuits (infinite loops, type mismatches, insufficient energy) are game content: the machine enters a crashed state, visuals present the glitch aesthetics, and the circuit panel highlights the failing node and reason in red. Bugs in the simulation core itself are caught by unit tests.
 
-## 5. 玩法系统
+## 5. Gameplay Systems
 
-### 统一可编程规则
+### Unified Programmability Rule
 
-`回路刻录槽`是一个模块；任何装了它的结构都可编程。魔像 = 装了悬浮移动核心的结构，本质是"会移动的机器"。全游戏一套规则：**模块拼装决定能力，回路决定行为**。
+The `inscription slot` is a module; any structure equipped with one is programmable. A golem = a structure equipped with a hover core — in essence "a machine that can move". One rule set for the whole game: **module assembly determines capability, circuits determine behavior**.
 
-### 多方块模块拼装
+### Multi-Block Module Assembly
 
-机器由玩家在世界中用功能方块拼搭：悬浮基座 + 附加模块（采集棱镜、容量水晶、增幅符文、回路刻录槽、悬浮移动核心等）。连通结构在仿真中算一台机器，能力与数值为模块之和。不做结构整体运动物理（否决 Besiege 式）。
+Machines are assembled by the player in the world from functional blocks: a hovering base module + attached modules (harvest prism, capacity crystal, amplifier rune, inscription slot, hover core, etc.). A connected structure counts as one machine in the simulation, with capabilities and stats being the sum of its modules. No whole-structure motion physics (Besiege-style rejected).
 
-### 能量系统（魔力）
+### Energy System (Mana)
 
-- 魔力泉：地形上稀疏分布，每 tick 固定产出，是领土扩张动机
-- 能量导轨：机器经导轨连入网络；同一连通网络每 tick 汇总供需，供不应求时全体按 supply/demand 比例降速（不断电停机；视觉反馈为发光变暗、转速变慢）
-- 扩展钩子（MVP 不做）：距离衰减、魔力频率、环境影响
+- Mana springs: sparsely distributed across the terrain, fixed output per tick — the motivation for territorial expansion
+- Energy conduits: machines connect into the network via conduits; the same connected network aggregates supply and demand each tick; when demand exceeds supply, everything slows down proportionally by the supply/demand ratio (no blackout shutdowns; visual feedback is glow dimming and rotation slowing)
+- Extension hooks (not in MVP): distance attenuation, mana frequencies, environmental effects
 
-### 魔像与开场
+### Golems and the Opening
 
-游戏第一分钟玩家即拥有一台初始魔像（预装移动核心+采集臂+刻录槽）与基础节点。教学即编写第一条回路。编程是游戏的动词，不是奖励。手动采集只存在于开场教学。
+Within the first minute of the game the player already owns an initial golem (pre-fitted with a hover core + harvesting arm + inscription slot) and basic nodes. The tutorial is writing the first circuit. Programming is the game's verb, not a reward. Manual harvesting exists only in the opening tutorial.
 
-### 回路执行模型：执行流 + 数据流混合（Blueprint 式）
+### Circuit Execution Model: Hybrid Execution Flow + Data Flow (Blueprint-Style)
 
-- 两种连线：执行线（定义动作顺序）与数据线（传感读数、运算结果喂给节点参数）
-- 入口为事件节点：`启动时`（程序体，天然循环）、`收到信号时`、`每N tick`
-- **可挂起解释器**：耗时动作（移动、采集）挂起程序计数器直至完成，协程式微型虚拟机（编译为带跳转的指令数组 + 每机一个程序计数器）
-- **运行时只读铁律**：运行中的回路是只读的扁平指令流。玩家修改回路重新刻录、或结构模块发生增减（拆除/损坏）时，一律强制复位（Reset）该虚拟机——清空程序计数器与局部状态，从`启动时`重新执行。禁止对执行中的堆栈做热更新
-- **VM 状态可序列化**：编译产物（指令数组）静态绑定到蓝图 ID，不进存档；每台机器的运行状态只含平凡值——`BlueprintID + ProgramCounter + WaitTicksRemaining + 局部变量表(值类型) + 当前目标数据`。禁止在 VM 状态中出现 C# 委托、Lambda、引用回调等不可序列化物
-- 执行中的节点在编辑器里高亮发光——运行可视化即免费的 debug 工具
-- MVP 节点集约 15 个：事件（启动时/收到信号/每N tick）、感知（读库存、探测、自身状态、**寻找最近资源点/储存碑——输出 Vector**）、运算（比较、与或非、计数器、常量）、动作（移动到、采集、装载、卸载、启停、发信号、等待）、流程（条件分支）
-- **相对寻址原则**：回路的主要寻址方式是"传感器输出坐标 → 喂给动作节点"（如 `寻找最近资源点 → 移动到`），玩家不应在 3D 世界里手动输入绝对坐标；坐标拾取只作后备。这保证资源枯竭时回路自动寻找下一个目标、产线平移时回路不作废
-- 后期扩展：子回路封装为自定义节点（函数化）
+- Two kinds of wires: execution wires (define action order) and data wires (feed sensor readings and computation results into node parameters)
+- Entry points are event nodes: `On Start` (the program body, naturally looping), `On Signal Received`, `Every N Ticks`
+- **Suspendable interpreter**: time-consuming actions (moving, harvesting) suspend the program counter until completion — a coroutine-style micro virtual machine (compiled into an instruction array with jumps + one program counter per machine)
+- **Runtime read-only iron rule**: a running circuit is a read-only flat instruction stream. When the player edits the circuit and re-inscribes it, or when the structure's modules change (removal/damage), the virtual machine is always force-Reset — program counter and local state cleared, execution restarting from `On Start`. Hot-patching an executing stack is forbidden
+- **VM state is serializable**: the compilation artifact (instruction array) is statically bound to a blueprint ID and does not go into saves; each machine's runtime state contains only trivial values — `BlueprintID + ProgramCounter + WaitTicksRemaining + local variable table (value types) + current target data`. C# delegates, lambdas, reference callbacks, or any other non-serializable objects are forbidden in VM state
+- The currently executing node glows highlighted in the editor — runtime visualization is a free debug tool
+- MVP node set of about 15: events (On Start / On Signal Received / Every N Ticks), sensing (read inventory, detect, self state, **find nearest resource node / storage obelisk — outputs a Vector**), computation (compare, AND/OR/NOT, counter, constant), actions (move to, harvest, load, unload, start/stop, send signal, wait), flow control (conditional branch)
+- **Relative addressing principle**: the primary addressing mode of circuits is "sensor outputs a coordinate → fed into an action node" (e.g. `Find Nearest Resource Node → Move To`); the player should not manually enter absolute coordinates in the 3D world; coordinate picking is a fallback only. This guarantees circuits automatically seek the next target when a resource is depleted, and circuits stay valid when a production line is translated
+- Later extension: sub-circuits encapsulated as custom nodes (function-ization)
 
-### 多魔像协作
+### Multi-Golem Cooperation
 
-- **符文蓝图库**：回路保存为蓝图，可刻录给任意多台魔像（写一次部署一支舰队）
-- **蓝图更新是惰性且安全的**（复位铁律的舰队级细化）：直接对单台机器刻录 = 立即复位（编辑者的明确意图）；但**修改蓝图**时，50 台引用者不得瞬间集体 Reset（半空中的运输魔像会僵死、载着珍贵货物的会拿着货重跑初始逻辑）——引用者只被标记 `PendingUpdate`，在 PC 回到程序入口（天然循环边界）时静默切换新指令流；崩溃态或手动 Reset 的机器在复位时即切换
-- **信号系统**：信标水晶广播命名信号频道，机器与魔像的回路可读写；传感器符文/触发水晶即读写信号的固定结构
-- **信号语义为锁存（latch）**：频道值一经写入即保持，直到被覆写或被 `清除信号` 节点显式归零——不会因写者停止发信而消失。理由：VM 是协程挂起式的，魔像执行 20 tick 的采集时无法持续发信，若信号需每 tick 维持则会断崖消失。锁存 + 显式清除保持"绝对的段落感"。同一 tick 多写者取最大值（"信号强度取最强"）；写入在 tick N、可读在 N+1（双缓冲保确定性）；传感符文类固定结构每 tick 重写自己的频道
-- **核心上限**：同时活跃魔像数量受上限约束，用真理碎片提升（进度钩子 + 性能与认知负荷保护）
+- **Rune blueprint library**: circuits are saved as blueprints and can be inscribed onto any number of golems (write once, deploy a fleet)
+- **Blueprint updates are lazy and safe** (the fleet-level refinement of the reset iron rule): direct inscription onto a single machine = immediate Reset (the editor's explicit intent); but when **editing a blueprint**, its 50 referencing machines must not all instantly Reset at once (transport golems in mid-air would freeze; those carrying precious cargo would re-run the initial logic while still holding the goods) — referencing machines are only marked `PendingUpdate`, and silently switch to the new instruction stream when the PC returns to the program entry point (the natural loop boundary); crashed or manually Reset machines switch at the moment of reset
+- **Signal system**: beacon crystals broadcast named signal channels; the circuits of machines and golems can read and write them; sensor runes / trigger crystals are the fixed structures that read/write signals
+- **Signal semantics are latched**: once written, a channel's value persists until overwritten or explicitly zeroed by a `Clear Signal` node — it does not vanish because the writer stops emitting. Rationale: the VM is coroutine-suspendable — a golem executing a 20-tick harvest cannot keep emitting; if signals required per-tick maintenance they would cliff-drop into nothing. Latch + explicit clear preserves the "absolute sense of segmentation". Multiple writers in the same tick take the maximum value ("strongest signal wins"); writes at tick N become readable at N+1 (double-buffered for determinism); sensor-rune-type fixed structures rewrite their own channel every tick
+- **Core limit**: the number of simultaneously active golems is constrained by a cap, raised with truth shards (a progression hook + protection for performance and cognitive load)
 
-### 进度：解锁树
+### Progression: Unlock Tree
 
-产出高阶物品获得**真理碎片**，消耗碎片解锁。每层解锁回应玩家刚产生的痛点：
+Producing higher-tier items yields **truth shards**; spending shards unlocks. Each tier answers a pain point the player has just developed:
 
-- 第0层（开局）：一台魔像、基础模块、基础节点
-- 第1层：固定结构（基座/采集棱镜/容量水晶）、浮运轨道
-- 第2层：转化法阵配方、运算节点、增幅模块
-- 第3层：信号系统（协作解锁）
-- 第4层：蓝图库、核心上限、高级模块
+- Tier 0 (start): one golem, basic modules, basic nodes
+- Tier 1: fixed structures (base module / harvest prism / capacity crystal), hover rails
+- Tier 2: transmutation circle recipes, computation nodes, amplifier modules
+- Tier 3: signal system (cooperation unlocked)
+- Tier 4: blueprint library, core limit, advanced modules
 
-### 物品与配方（MVP 最小集）
+### Items and Recipes (MVP Minimal Set)
 
-2 种原料（辉石、以太尘）→ 3 种加工品 → 1 种真理碎片。内容量扩充是 M5 之后的迭代工作。
+2 raw materials (glimstone, aether dust) → 3 processed goods → 1 truth shard. Content-volume expansion is iteration work after M5.
 
-## 6. 美术与音效素材策略
+## 6. Art and Audio Asset Strategy
 
-### 来源分工
+### Source Division
 
-- **自然大陆**：Kenney、Quaternius、KayKit 的 CC0 低多边形套件；贴图/天空盒用 Poly Haven（CC0）
-- **几何巨构**：自制（Blender 学习项目）——基础几何体 + 倒角 + 发光材质，每模块几百面以内；建模纪律：只用方/柱/锥+倒角，禁止有机曲面
-- **角色与动画**：Synty POLYGON 包（预算主要去处）或 KayKit 免费角色；Mixamo 自动绑骨与动画。魔像不用骨骼动画，程序动画（旋转/浮动/缩放）表达生命感
-- **Shader/VFX（自研，画面上限所在）**：发光描边、菲涅尔边缘光、流动符文、能量射线、故障噪点；参考 godotshaders.com；后处理用 WorldEnvironment（Glow/体积雾/色调映射）
-- **音效**：Sonniss GDC 免费包、Freesound（CC0 筛选）、Kenney 音效包。机器声=低频嗡鸣+水晶泛音，UI=机械键盘式干脆反馈
-- **音乐**：MVP 用环境音铺底，音乐后期采购（itch.io ambient 包）
+- **Natural continent**: CC0 low-poly kits from Kenney, Quaternius, KayKit; textures/skyboxes from Poly Haven (CC0)
+- **Geometric megastructures**: self-made (Blender learning project) — basic geometric primitives + bevels + emissive materials, each module within a few hundred faces; modeling discipline: cubes/cylinders/cones + bevels only, organic curved surfaces forbidden
+- **Character and animation**: Synty POLYGON packs (the main budget destination) or KayKit free characters; Mixamo auto-rigging and animation. Golems use no skeletal animation — procedural animation (rotation/floating/scaling) conveys the sense of life
+- **Shaders/VFX (self-developed; where the visual ceiling lies)**: emissive outlines, Fresnel rim light, flowing runes, energy beams, glitch noise; reference godotshaders.com; post-processing via WorldEnvironment (Glow / volumetric fog / tone mapping)
+- **Sound effects**: Sonniss GDC free packs, Freesound (filtered for CC0), Kenney sound packs. Machine sound = low-frequency hum + crystal overtones; UI = mechanical-keyboard-crisp feedback
+- **Music**: MVP uses ambient sound as a bed; music purchased later (itch.io ambient packs)
 
-### 统一纪律
+### Unified Discipline
 
-1. 锁死调色板：自然界暖灰绿棕 ≤8 色；巨构黑白灰 + 唯一冷光色（冰蓝）+ 唯一警示色（猩红）；外来素材一律重新着色
-2. 统一材质管线：所有模型走同一基础材质（flat shading/单张渐变贴图），外来素材进场先洗贴图
-3. License 纪律：只收 CC0 与明确可商用素材；维护 `CREDITS.md` 逐条记录来源与许可；避开 NC 条款
+1. Lock the palette: nature uses warm gray-green-brown, ≤8 colors; megastructures use black/white/gray + a single cold accent color (ice blue) + a single warning color (crimson); all external assets are recolored
+2. Unified material pipeline: all models go through the same base material (flat shading / a single gradient texture); external assets get their textures scrubbed on entry
+3. License discipline: accept only CC0 and explicitly commercially usable assets; maintain a `CREDITS.md` recording source and license entry by entry; avoid NC clauses
 
-## 7. Codex 协作工作流
+## 7. Codex Collaboration Workflow
 
-### 仓库基建（第一天）
+### Repository Infrastructure (Day One)
 
-- git 仓库 + `AGENTS.md`（Codex 的项目说明书）：架构铁律（SimCore 禁止 import Godot、表现层禁止写仿真状态、热路径禁止分配、SimCore 子系统间禁止直接引用）、项目结构地图、测试命令、代码风格、"不确定的 Godot API 先查官方文档"
+- git repository + `AGENTS.md` (Codex's project handbook): architecture iron rules (SimCore must not import Godot, the presentation layer must not write simulation state, no allocations on the hot path, SimCore subsystems must not reference each other directly), project structure map, test commands, code style, "for uncertain Godot APIs, consult official docs first"
 
-### SimCore 内部的接口隔离（为 AI 上下文而设计）
+### Interface Isolation Inside SimCore (Designed for AI Context)
 
-SimCore 会持续膨胀（回路 VM、能量网络、物品流、建造/拓扑），而 AI 的上下文窗口有物理极限。因此子系统之间**禁止直接互相引用**——能量网络不知道回路 VM 的存在，反之亦然；交互只通过两条通道：仿真内部事件总线，或纯数据结构（如"本 tick 各网络的功率满足率"表）。收益：给 Codex 布置任务时只需喂单个子系统的代码 + 交互数据契约，防止它读不全代码时"凭空创造"另一个子系统的 API；副产品是每个子系统可独立单测。此铁律写入 AGENTS.md，违反即审查打回。
-- 设计文档与实现计划放 `docs/`，任务引用文档章节
+SimCore will keep growing (circuit VM, energy network, item flow, building/topology), while the AI's context window has a physical limit. Therefore subsystems are **forbidden from referencing each other directly** — the energy network does not know the circuit VM exists, and vice versa; interaction goes only through two channels: the simulation-internal event bus, or pure data structures (e.g. a "power satisfaction ratio per network this tick" table). Benefit: when assigning Codex a task, only a single subsystem's code + the interaction data contract needs to be fed in, preventing it from "conjuring up" another subsystem's API when it cannot read all the code; a byproduct is that each subsystem can be unit-tested independently. This iron rule goes into AGENTS.md; violations are rejected in review.
+- Design documents and implementation plans live in `docs/`; tasks reference document sections
 
-### 任务节奏
+### Task Cadence
 
-小而可验证，一次一个模块内一件事。SimCore 采用 TDD：Codex 写测试 → 实现 → `dotnet test` 自验证闭环。表现层（场景/shader/手感）由开发者亲自跑游戏验收。
+Small and verifiable, one thing in one module at a time. SimCore uses TDD: Codex writes tests → implements → `dotnet test` self-verification closed loop. The presentation layer (scenes/shaders/feel) is accepted by the developer personally playing the game.
 
-**面向接口的 Prompting（防上下文污染与幻觉重构）**：随着 SimCore 膨胀，给 Codex 的任务只喂"当前子系统的代码 + 相邻子系统的接口契约文件（VmIo、事件定义、数据表结构）"，**绝不喂相邻子系统的实现源码**。把 AI 当成只能看 API 文档的外包程序员——上下文塞满整个 Simulation.cs 时，LLM 会发明不存在的 API、悄悄改动既定接口、偷偷引入 LINQ 破坏零分配纪律。审查时对照接口契约验收，接口文件的任何 diff 都是红灯。
+**Interface-oriented prompting (guarding against context pollution and hallucinated refactors)**: as SimCore grows, tasks given to Codex are fed only "the current subsystem's code + the adjacent subsystems' interface contract files (VmIo, event definitions, data table structures)", **never the adjacent subsystems' implementation source**. Treat the AI as an outsourced programmer who can only see API docs — when the context is stuffed with the entire Simulation.cs, the LLM will invent nonexistent APIs, quietly alter established interfaces, and sneak LINQ in to break the zero-allocation discipline. During review, accept against the interface contracts; any diff to an interface file is a red light.
 
-### 分工边界
+### Division of Labor
 
-- 开发者：架构决策、任务拆解、代码审查（重点盯模块边界）、试玩验收、美术方向、Blender/shader 动手部分。**特别注意：Codex 擅长写 shader 算法但不擅长调视觉参数——Glow 强度、扭曲幅度、颜色曲线等数值调优必须开发者亲自下场**
-- Codex：SimCore 逻辑与测试、UI 代码、表现层绑定、shader 初稿、工具脚本
-- 审查红线：跨模块重构、新增第三方依赖、更改架构约定必须经开发者批准
+- Developer: architecture decisions, task breakdown, code review (focused on module boundaries), playtest acceptance, art direction, the hands-on Blender/shader parts. **Special note: Codex is good at writing shader algorithms but bad at tuning visual parameters — numeric tuning of Glow intensity, distortion amplitude, color curves, etc. must be done by the developer personally**
+- Codex: SimCore logic and tests, UI code, presentation-layer bindings, shader first drafts, tooling scripts
+- Review red lines: cross-module refactors, adding third-party dependencies, and changing architecture conventions all require the developer's approval
 
-### AI 友好工程习惯
+### AI-Friendly Engineering Habits
 
-场景文件小而多（一个模块一个场景）；每任务一个 commit；坏了即回滚。
+Scene files small and numerous (one scene per module); one commit per task; roll back immediately when something breaks.
 
-## 8. 里程碑与 MVP 定义
+## 8. Milestones and MVP Definition
 
-| 里程碑 | 内容 | 预估 |
+| Milestone | Content | Estimate |
 |---|---|---|
-| M0 骨架 | solution 结构、SimCore tick/指令/事件 + 首批测试、**存档往返测试（序列化→反序列化→状态一致，第一周就锁死）**、AGENTS.md、Godot 空场景接通 | 1-2周 |
-| M1 行走切片 | 手工地形、第三人称角色（Mixamo）、网格吸附放置/拆除 | 2-3周 |
-| M2 魔像与最小回路 | 初始魔像、GraphEdit 编辑器最小版、可挂起解释器 + 7 节点、资源点、储存碑。**核心体验验证点** | 4-6周 |
-| M3 生产体系 | 多方块拼装、能量网络、浮运轨道、转化法阵、解锁树雏形 | 4-6周 |
-| M4 表现升级 | 冷发光 shader 套件、故障美学（含死循环/死锁时的空间扭曲 shader）、音效、UI 主题、后处理 | 3-4周 |
-| M5 完整 MVP | 存档、信号系统、蓝图库、内容补足（约10模块/15节点/3层解锁） | 3-4周 |
+| M0 Skeleton | solution structure, SimCore tick/commands/events + first batch of tests, **save round-trip test (serialize → deserialize → identical state, locked down in the very first week)**, AGENTS.md, empty Godot scene wired up | 1-2 weeks |
+| M1 Walking slice | hand-made terrain, third-person character (Mixamo), grid-snapped placement/removal | 2-3 weeks |
+| M2 Golem and minimal circuit | initial golem, minimal GraphEdit editor, suspendable interpreter + 7 nodes, resource nodes, storage obelisk. **The core-experience validation point** | 4-6 weeks |
+| M3 Production system | multi-block assembly, energy network, hover rails, transmutation circle, unlock tree prototype | 4-6 weeks |
+| M4 Presentation upgrade | cold-glow shader suite, glitch aesthetics (including the spatial-distortion shader for infinite loops/deadlocks), sound effects, UI theme, post-processing | 3-4 weeks |
+| M5 Full MVP | saves, signal system, blueprint library, content fill-out (about 10 modules / 15 nodes / 3 unlock tiers) | 3-4 weeks |
 
-**MVP 完成定义**：新玩家无引导可完成——给魔像编写采集程序 → 拼装第一条自动产线 → 用信号让两台魔像协作 → 解锁至少一层科技 → 存读档继续游戏。
+**MVP completion definition**: a new player, with no guidance, can complete — write a harvesting program for a golem → assemble the first automated production line → use signals to make two golems cooperate → unlock at least one tech tier → save and load to continue the game.
 
-M2 刻意前置：可编程魔像是整个游戏成立与否的判断点，最高风险最早验证。
+M2 is deliberately front-loaded: the programmable golem is the judgment point for whether the whole game holds up — the highest risk verified earliest.
 
-## 9. 测试策略
+## 9. Testing Strategy
 
-- **SimCore**：xUnit 单元测试为主战场——能量解算、回路虚拟机（含挂起/恢复）、物品流、配方、存档往返（serialize→deserialize→状态一致）
-- **确定性**：同一指令序列必须产生同一状态（为回归测试与存档一致性背书）
-- **表现层**：不自动化，靠开发者试玩验收
-- **回归习惯**：每个 bug 修复先补一个还原该 bug 的测试
-- **图算法不信任原则**：AI 一次性写出的图算法（连通分量、BFS 分裂、拓扑排序）必须用刁钻用例锁死边界后才算完成——环形结构拆单边不分裂（重入标记）、拆桥接一分为三、自环/重边。测试先行，实现在后
-- **浮点往返精确性**：存档测试必须包含对抗性浮点值（0.1、1.0/3.0、1e-17）的位级往返用例
+- **SimCore**: xUnit unit tests are the main battlefield — energy solving, the circuit virtual machine (including suspend/resume), item flow, recipes, save round-trip (serialize → deserialize → identical state)
+- **Determinism**: the same command sequence must produce the same state (backing regression tests and save consistency)
+- **Presentation layer**: not automated; accepted via developer playtesting
+- **Regression habit**: every bug fix first adds a test reproducing that bug
+- **Distrust-the-graph-algorithm principle**: any graph algorithm the AI writes in one shot (connected components, BFS split detection, topological sort) counts as done only after its boundaries are locked down with vicious test cases — removing one edge of a ring structure does not split it (re-entry marking), removing a bridge splits one into three, self-loops / parallel edges. Tests first, implementation after
+- **Floating-point round-trip exactness**: save tests must include bit-exact round-trip cases with adversarial float values (0.1, 1.0/3.0, 1e-17)
 
-## 10. 风险清单（按杀伤力排序）
+## 10. Risk List (Ordered by Lethality)
 
-1. **范围膨胀**：里程碑纪律；当前里程碑外的点子进 `docs/backlog.md` 不实现；每里程碑必须可玩
-2. **回路编辑器交互无底洞**：M2 只求能用，打磨归 M4；交互照抄 Blueprint 不自由发挥
-3. **Godot C# 语料弱于 Unity**：AGENTS.md 要求 Codex 对不确定 API 查官方文档；反复出错领域由开发者读文档定调
-4. **美术统一性失控**：调色板纪律 + 素材入场先洗
-5. **热情衰减**：每里程碑产出可展示成果；最有趣的 M2 前置
+1. **Scope creep**: milestone discipline; ideas outside the current milestone go into `docs/backlog.md` and are not implemented; every milestone must be playable
+2. **Circuit editor interaction as a bottomless pit**: M2 aims only for usable; polish belongs to M4; interaction copies Blueprint verbatim, no freestyle improvisation
+3. **Godot C# corpus weaker than Unity's**: AGENTS.md requires Codex to consult official docs for uncertain APIs; domains with repeated errors get their tone set by the developer reading the docs
+4. **Art cohesion spiraling out of control**: palette discipline + assets scrubbed on entry
+5. **Enthusiasm decay**: every milestone produces a showable result; the most fun part, M2, is front-loaded
