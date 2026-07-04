@@ -1,25 +1,25 @@
-# 实现计划索引
+# Implementation Plan Index
 
-规格来源：[../specs/2026-07-03-magic-automation-game-design.md](../specs/2026-07-03-magic-automation-game-design.md)
+Spec source: [../specs/2026-07-03-magic-automation-game-design.md](../specs/2026-07-03-magic-automation-game-design.md)
 
-| 月 | 里程碑 | 计划 | 核心交付 |
+| Month | Milestone | Plan | Core Deliverables |
 |---|---|---|---|
-| 1 | M0 + M1 前半 | [month1-skeleton-and-walking-slice](2026-07-03-month1-skeleton-and-walking-slice.md) | SimCore 骨架、存档往返、灰盒角色与网格建造 |
-| 2 | M1 收尾 + M2 前半 | [month2-character-and-circuit-compiler](2026-07-03-month2-character-and-circuit-compiler.md) | 动画角色、回路图模型与编译器 |
-| 3 | M2 收尾 | [month3-vm-golem-and-editor](2026-07-03-month3-vm-golem-and-editor.md) | 可挂起 VM、魔像、GraphEdit 编辑器、端到端采集 |
-| 4 | M3 | [month4-assembly-energy-production](2026-07-03-month4-assembly-energy-production.md) | 多方块拼装、能量网络、轨道、法阵、解锁树 |
-| 5 | M4 | [month5-presentation-upgrade](2026-07-03-month5-presentation-upgrade.md) | shader 套件、故障美学、音效、UI 主题 |
-| 6 | M5 前半 | [month6-saves-and-signals](2026-07-03-month6-saves-and-signals.md) | 存档落盘、信号系统、多魔像协作 |
-| 7 | M5 收尾 | [month7-blueprints-content-mvp](2026-07-03-month7-blueprints-content-mvp.md) | 蓝图库、内容补足、教学、MVP 验收 |
+| 1 | M0 + first half of M1 | [month1-skeleton-and-walking-slice](2026-07-03-month1-skeleton-and-walking-slice.md) | SimCore skeleton, save round-trip, gray-box character and grid building |
+| 2 | M1 wrap-up + first half of M2 | [month2-character-and-circuit-compiler](2026-07-03-month2-character-and-circuit-compiler.md) | Animated character, circuit graph model and compiler |
+| 3 | M2 wrap-up | [month3-vm-golem-and-editor](2026-07-03-month3-vm-golem-and-editor.md) | Suspendable VM, golem, GraphEdit editor, end-to-end harvesting |
+| 4 | M3 | [month4-assembly-energy-production](2026-07-03-month4-assembly-energy-production.md) | Multi-block assembly, energy network, rails, transmutation circles, unlock tree |
+| 5 | M4 | [month5-presentation-upgrade](2026-07-03-month5-presentation-upgrade.md) | Shader suite, glitch aesthetics, sound effects, UI theme |
+| 6 | First half of M5 | [month6-saves-and-signals](2026-07-03-month6-saves-and-signals.md) | Save persistence to disk, signal system, multi-golem cooperation |
+| 7 | M5 wrap-up | [month7-blueprints-content-mvp](2026-07-03-month7-blueprints-content-mvp.md) | Blueprint library, content fill-out, tutorial, MVP acceptance |
 
-## 使用规则
+## Usage Rules
 
-1. **逐月执行**：只执行当前月的计划。执行方式见各计划头部（Codex / 子代理均可）。
-2. **开工校准**：第 2 个月起，每月开工第一步是对照仓库实际代码核对该计划的 Interfaces 与文件路径。接口漂移 → 先修订计划再动工；**月度目标与验收标准不可降级**。步骤粒度越靠后越粗，校准时按计划内的接口契约与测试清单补足步骤级代码。
-3. **范围纪律**：计划外的点子进 `docs/backlog.md`，不实现。
-4. **月末**：跑该计划的"月末完成定义"清单，另加两项固定仪式：
-   - **分配扫描**：用 Rider Heap Allocation Viewer（或 dotnet-counters 看 GC 频率）人工过一遍 `Simulation.Tick()` 调用树，抓 AI 留下的隐式分配（接口枚举器装箱、struct 转接口装箱、字符串插值）
-   - **边界扫描**：`grep -r "using Godot" SimCore/` 为空；接口契约文件与上月相比无未审批 diff
+1. **Execute month by month**: Only execute the current month's plan. See each plan's header for the execution method (Codex / subagents both work).
+2. **Pre-start calibration**: From month 2 onward, the first step at the start of each month is to verify that plan's Interfaces and file paths against the actual code in the repository. Interface drift → revise the plan first, then start work; **monthly goals and acceptance criteria must not be downgraded**. Step granularity gets coarser toward the later months; during calibration, fill in step-level code according to the interface contracts and test checklists within the plan.
+3. **Scope discipline**: Ideas outside the plan go into `docs/backlog.md`; do not implement them.
+4. **Month end**: Run that plan's "End-of-month definition of done" checklist, plus two fixed rituals:
+   - **Allocation scan**: Use Rider Heap Allocation Viewer (or dotnet-counters to watch GC frequency) to manually walk the `Simulation.Tick()` call tree, catching hidden allocations left by AI (interface enumerator boxing, struct-to-interface boxing, string interpolation)
+   - **Boundary scan**: `grep -r "using Godot" SimCore/` returns empty; interface contract files have no unapproved diff compared with the previous month
 
-   全过才进入下一月。
-5. **喂料纪律（第 4 个月起强制）**：给 Codex 的任务只含当前子系统代码 + 相邻子系统接口契约，绝不含相邻子系统实现源码——防上下文污染导致的幻觉 API 与偷改接口。
+   Only proceed to the next month once everything passes.
+5. **Feeding discipline (mandatory from month 4 onward)**: Tasks given to Codex contain only the current subsystem's code + adjacent subsystems' interface contracts, and never adjacent subsystems' implementation source code — to prevent context pollution that leads to hallucinated APIs and unauthorized interface changes.

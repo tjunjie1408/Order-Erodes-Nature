@@ -1,160 +1,162 @@
-# 第 4 个月：M3——多方块拼装、能量网络与生产体系 实现计划
+# Month 4: M3 — Multi-Block Assembly, Energy Networks, and the Production System — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **开工前校准（必读）**：本计划的接口按第 1-3 个月计划的产出推定。开工第一步核对 `Simulation`/`Structure`/魔像实际形态，尤其"结构"需要从单方块升级为多方块——若第 3 个月实际实现与推定不符，先修订本计划。步骤级代码在校准时按本文档的接口契约与测试清单补足。
+> **Pre-start calibration (must read):** The interfaces in this plan are inferred from the deliverables of the Month 1-3 plans. As the very first step, verify the actual shape of `Simulation`/`Structure`/golems — in particular, "structure" needs to be upgraded from single-block to multi-block. If Month 3's actual implementation differs from these assumptions, revise this plan first. Step-level code is filled in at calibration time according to this document's interface contracts and test checklists.
 
-**Goal:** 结构从单方块升级为多方块模块组装（连通性+能力聚合）；能量网络（魔力泉/导轨/按比例降速）；浮运轨道物品传输；转化法阵配方加工；解锁树雏形。
+**Goal:** Structures upgrade from single-block to multi-block module assembly (connectivity + capability aggregation); energy networks (mana springs / conduits / proportional throttling); hover-rail item transport; transmutation-circle recipe processing; a first draft of the unlock tree.
 
-**Architecture:** 三个新子系统全部落在 SimCore、彼此按 ISP 隔离：**建造拓扑**（连通分量管理，产出"结构=模块集合+能力表"纯数据）、**能量网络**（独立图，产出"每网络满足率"表）、**物品/配方**（消费能力表与满足率）。任何子系统不引用另一子系统的类型，交互只经 `Simulation` 聚合的纯数据表（规格 §7 ISP 铁律）。
+**Architecture:** All three new subsystems live in SimCore and are isolated from one another per ISP: **build topology** (connected-component management, producing "structure = module set + capability table" as pure data), **energy network** (an independent graph, producing a "per-network satisfaction ratio" table), and **items/recipes** (consumes the capability table and satisfaction ratios). No subsystem references another subsystem's types; interaction happens only through pure data tables aggregated by `Simulation` (spec §7 ISP iron rule).
 
-**规格来源:** 设计文档 §5（多方块拼装、能量系统、机器体系、物品与配方、进度）、§4（性能设计：拓扑只在建造/拆除 tick 重算）
+**Spec sources:** Design document §5 (multi-block assembly, energy system, machine system, items and recipes, progression), §4 (performance design: topology is only recomputed on build/demolish ticks)
 
 ## Global Constraints
 
-- 同前全部铁律。本月新增：
-  - 连通性/能量拓扑重算只发生在建造/拆除指令的那个 tick，用局部 BFS，绝不进每 tick 热路径
-  - 单结构模块数上限 **64**（规格"几十格量级"的具体化；超限放置被拒绝，错误码 `structure_size_limit`）
-  - **面向接口的 Prompting 从本月起严格执行**（SimCore 开始膨胀）：给 Codex 的每个任务只喂当前子系统代码 + 相邻子系统的接口契约（本计划开头的契约块即为此而写），绝不喂相邻子系统实现源码；接口文件出现在 diff 里即红灯打回
+- All previous iron rules still apply. New this month:
+  - Connectivity/energy topology recomputation happens only on the tick of a build/demolish command, using a local BFS — it must never enter the per-tick hot path
+  - Per-structure module cap of **64** (a concretization of the spec's "on the order of tens of cells"; placements exceeding the cap are rejected with error code `structure_size_limit`)
+  - **Interface-oriented prompting is strictly enforced starting this month** (SimCore is starting to bloat): every task fed to Codex gets only the current subsystem's code + the adjacent subsystems' interface contracts (the contract block at the top of this plan exists precisely for this purpose), never the adjacent subsystems' implementation source; if an interface file shows up in the diff, that is a red light — reject and send back
 
-## 子系统接口契约（校准时锁死签名，先按此实现）
+## Subsystem Interface Contracts (lock the signatures at calibration time; implement to these first)
 
 ```csharp
-// —— 建造拓扑子系统（SimCore/Assembly/）——
-// 模块类型目录（数据表）：module_base(基座)、module_harvest_prism(采集棱镜)、
-//   module_capacity_crystal(容量水晶)、module_amplifier(增幅符文)、
-//   module_inscription_slot(回路刻录槽)、module_hover_core(悬浮移动核心)
-public sealed class StructureInfo          // 拓扑子系统的唯一输出（纯数据）
+// —— Build topology subsystem (SimCore/Assembly/) ——
+// Module type catalog (data table): module_base (base module), module_harvest_prism (harvest prism),
+//   module_capacity_crystal (capacity crystal), module_amplifier (amplifier rune),
+//   module_inscription_slot (inscription slot), module_hover_core (hover core)
+public sealed class StructureInfo          // The topology subsystem's sole output (pure data)
 {
     public int StructureId;
     public List<GridPos> Cells;
-    public Capabilities Caps;              // 聚合能力表
+    public Capabilities Caps;              // Aggregated capability table
 }
-public struct Capabilities                 // 全平凡值
+public struct Capabilities                 // All-trivial values
 {
     public bool CanHarvest, CanMove, HasInscriptionSlot;
-    public int CargoCapacity;              // 基础10 + 每容量水晶 +20
-    public float SpeedMultiplier;          // 1.0 + 每增幅符文 +0.25
-    public int EnergyDemandPerTick;        // 模块数 × 1
+    public int CargoCapacity;              // Base 10 + 20 per capacity crystal
+    public float SpeedMultiplier;          // 1.0 + 0.25 per amplifier rune
+    public int EnergyDemandPerTick;        // Module count × 1
 }
-// 放置相邻模块 → 并入结构并重算 Caps；拆除 → 局部 BFS 判断是否分裂，
-// 分裂产生新 StructureId，各自重算 Caps；魔像=含 hover_core 的结构，其 VM/货物挂在 StructureId 上
+// Placing an adjacent module → merge into the structure and recompute Caps; demolishing → local BFS
+// to determine whether it splits; a split produces new StructureIds, each recomputing its own Caps;
+// a golem = a structure containing hover_core, with its VM/cargo attached to the StructureId
 
-// —— 能量网络子系统（SimCore/Energy/）——
-// 实体：魔力泉(源, 产出 20/tick)、能量导轨(传导)、结构经导轨邻接入网
-public sealed class EnergyReport           // 能量子系统每 tick 的唯一输出（复用实例，零分配）
+// —— Energy network subsystem (SimCore/Energy/) ——
+// Entities: mana spring (source, produces 20/tick), energy conduit (transmission), structures join the network via conduit adjacency
+public sealed class EnergyReport           // The energy subsystem's sole per-tick output (reused instance, zero allocation)
 {
-    // structureId → 满足率 [0,1]；不在表中 = 未接网 = 0
+    // structureId → satisfaction ratio [0,1]; absent from the table = not connected = 0
     public Dictionary<int, float> Satisfaction;
 }
-// 满足率 = min(1, 网络总供给 / 网络总需求)；影响：动作速度与配方进度 × 满足率
-// （规格：降速不停机）。魔像未接网时按 0.2 倍速运转（"残余魔力"，避免开局死锁——
-// 初始魔像必须在无能量网络时也能工作，这是开局体验的保底规则）
+// Satisfaction ratio = min(1, network total supply / network total demand); effect: action speed and recipe progress × satisfaction ratio
+// (spec: throttle, never halt). A golem not connected to a network runs at 0.2× speed ("residual mana",
+// avoiding an early-game deadlock — the starting golem must be able to work even with no energy network;
+// this is the safety-net rule for the early-game experience)
 
-// —— 物品/配方子系统（SimCore/Items/）——
-// 物品：glimstone(辉石,原料)、aether_dust(以太尘,原料)、
-//       glim_ingot(辉锭)、aether_lens(以太透镜)、logic_matrix(逻辑矩阵)、
-//       truth_shard(真理碎片)
-// 配方（转化法阵，均需满足率>0，耗时按满足率缩放）：
+// —— Items/recipes subsystem (SimCore/Items/) ——
+// Items: glimstone (glimstone, raw material), aether_dust (aether dust, raw material),
+//       glim_ingot (glim ingot), aether_lens (aether lens), logic_matrix (logic matrix),
+//       truth_shard (truth shard)
+// Recipes (transmutation circle; all require satisfaction ratio > 0, duration scales with satisfaction ratio):
 //   glimstone×2 → glim_ingot (100 tick)
 //   aether_dust×3 → aether_lens (150 tick)
 //   glim_ingot×1 + aether_lens×1 → logic_matrix (200 tick)
 //   logic_matrix×2 → truth_shard (400 tick)
 
-// —— 解锁树（SimCore/Progression/）——
-// UnlockState: 持有 truth_shard 数 + 已解锁层级集合；
-// 层级门槛：Tier1(固定结构+浮运轨道)=2碎片, Tier2(转化法阵+运算节点+增幅)=5, 
-// Tier3/4 归 M5。未解锁的模块/节点：放置/刻录指令被拒绝，错误码 "locked"
+// —— Unlock tree (SimCore/Progression/) ——
+// UnlockState: truth_shard count held + set of unlocked tiers;
+// Tier thresholds: Tier1 (fixed structures + hover rail) = 2 shards, Tier2 (transmutation circle + compute node + amplifier) = 5,
+// Tier3/4 deferred to M5. Locked modules/nodes: placement/inscription commands are rejected with error code "locked"
 ```
 
 ---
 
-### Task 1: 建造拓扑——模块合并与分裂（TDD）
+### Task 1: Build Topology — Module Merging and Splitting (TDD)
 
-**Files:** Create `SimCore/Assembly/`（ModuleCatalog/StructureInfo/AssemblyTopology）；Modify `Simulation`（放置指令改走模块目录）；Test `AssemblyTopologyTests.cs`
+**Files:** Create `SimCore/Assembly/` (ModuleCatalog/StructureInfo/AssemblyTopology); Modify `Simulation` (placement commands routed through the module catalog); Test `AssemblyTopologyTests.cs`
 
-测试清单（先全写成失败测试再实现）：
+Test checklist (write all as failing tests first, then implement):
 - `PlaceAdjacentModules_MergeIntoOneStructure`
-- `Capabilities_AggregateFromModules`（基座+2容量水晶 → CargoCapacity=50）
+- `Capabilities_AggregateFromModules` (base module + 2 capacity crystals → CargoCapacity=50)
 - `RemoveBridgeModule_SplitsIntoTwoStructures_EachWithOwnCaps`
 - `RemoveLeafModule_KeepsSingleStructure`
-- **图算法刁钻用例（规格：不信任 AI 一次性写出的图算法，先写测试锁边界再实现）**：
-  - `RingStructure_RemoveOneSide_DoesNotSplit`（3×3 空心环拆单边——环内两条路径仍连通，最易暴露缺重入标记的 BFS 死循环/误分裂）
-  - `CrossJunction_RemoveCenter_SplitsIntoFour`（十字拆中心，一分为四）
-  - `TwoRings_SharedEdge_RemoveSharedEdge_StaysConnected`（8 字形拆共享边）
-  - `Bfs_Terminates_OnMaxSizeStructure`（64 模块满上限结构上做增删，断言有限步完成）
-- `SplitUsesLocalBfs_DoesNotTouchDistantStructures`（拆 A 结构不改变 B 结构的 StructureId——锁增量性）
+- **Tricky graph-algorithm cases (spec: distrust-the-graph-algorithm principle — never trust an AI-written-in-one-shot graph algorithm; write tests to lock the edge cases first, then implement):**
+  - `RingStructure_RemoveOneSide_DoesNotSplit` (3×3 hollow ring, remove one side — the two paths around the ring remain connected; the case most likely to expose a BFS missing visited marking, causing infinite loops/false splits)
+  - `CrossJunction_RemoveCenter_SplitsIntoFour` (cross shape, remove the center, splits into four)
+  - `TwoRings_SharedEdge_RemoveSharedEdge_StaysConnected` (figure-eight shape, remove the shared edge)
+  - `Bfs_Terminates_OnMaxSizeStructure` (add/remove on a 64-module structure at the full cap, assert completion in a finite number of steps)
+- `SplitUsesLocalBfs_DoesNotTouchDistantStructures` (demolishing structure A does not change structure B's StructureId — locks in incrementality)
 - `StructureExceeding64Modules_RejectsPlacement`
-- `GolemIdentity_SurvivesModuleAddition`（给魔像加容量水晶，VM 不复位？——**否**：规格"模块变更一律复位 VM"，断言 Reset 发生且货物保留）
+- `GolemIdentity_SurvivesModuleAddition` (adding a capacity crystal to a golem — does the VM not reset? — **No**: the spec says "any module change always resets the VM"; assert that the Reset happens and cargo is preserved)
 
 Commit: `feat(assembly): multi-block structures with merge/split topology`
 
-### Task 2: 能量网络（TDD）
+### Task 2: Energy Network (TDD)
 
-**Files:** Create `SimCore/Energy/`；Modify `Simulation`（魔力泉作为地图生成时布置的世界实体 + `PlaceConduitCommand`）；Test `EnergyNetworkTests.cs`
+**Files:** Create `SimCore/Energy/`; Modify `Simulation` (mana springs as world entities placed at map generation + `PlaceConduitCommand`); Test `EnergyNetworkTests.cs`
 
-测试清单：
+Test checklist:
 - `IsolatedStructure_HasZeroSatisfaction_GolemRunsAtFloorSpeed`
 - `ConnectedToSpring_FullSupply_SatisfactionOne`
-- `DemandExceedsSupply_ProportionalThrottle`（供20 需40 → 0.5）
+- `DemandExceedsSupply_ProportionalThrottle` (supply 20, demand 40 → 0.5)
 - `TwoSeparateNetworks_IndependentSatisfaction`
-- `RemovingConduit_SplitsNetwork_RecalculatedOnce`（重算只发生在拆除 tick）
-- `HarvestDuration_ScalesInverselyWithSatisfaction`（0.5 满足率 → 40 tick 完成采集）
+- `RemovingConduit_SplitsNetwork_RecalculatedOnce` (recomputation happens only on the demolish tick)
+- `HarvestDuration_ScalesInverselyWithSatisfaction` (0.5 satisfaction ratio → harvest completes in 40 ticks)
 
 Commit: `feat(energy): mana networks with proportional throttling`
 
-### Task 3: 浮运轨道物品传输（TDD）
+### Task 3: Hover-Rail Item Transport (TDD)
 
-**Files:** Create `SimCore/Items/`（RailSegment/ItemInTransit）；Test `RailTransportTests.cs`
+**Files:** Create `SimCore/Items/` (RailSegment/ItemInTransit); Test `RailTransportTests.cs`
 
-设计：轨道为相邻格链；物品以"轨道段+段内进度 float"表示，每 tick 进度 += 速度×满足率；到达终点若邻接储存碑/法阵入口则移交，否则堵塞（后方物品排队不重叠）。测试清单：
+Design: a rail is a chain of adjacent cells; an item is represented as "rail segment + within-segment progress float", and each tick progress += speed × satisfaction ratio; on reaching the end, if adjacent to a storage obelisk/circle input it is handed over, otherwise it blocks (items behind queue up without overlapping). Test checklist:
 - `ItemTraversesRail_AtSatisfactionScaledSpeed`
 - `ItemsQueue_WithoutOverlap_WhenOutputBlocked`
 - `RailEndAtStorage_DepositsItem`
-- `BrokenRail_ItemsHalt_NoLoss`（拆中段，物品停在原地不消失）
+- `BrokenRail_ItemsHalt_NoLoss` (demolish a middle segment; items stop in place and do not disappear)
 
 Commit: `feat(items): hover-rail transport with blocking queues`
 
-### Task 4: 转化法阵与配方（TDD）
+### Task 4: Transmutation Circles and Recipes (TDD)
 
-**Files:** Create `SimCore/Items/RecipeCatalog.cs`、法阵状态并入 Assembly 的能力（`module_transmute_core` 模块赋予 CanTransmute）；Test `TransmutationTests.cs`
+**Files:** Create `SimCore/Items/RecipeCatalog.cs`; circle state folded into Assembly's capabilities (a `module_transmute_core` module grants CanTransmute); Test `TransmutationTests.cs`
 
-测试清单：
+Test checklist:
 - `RecipeCompletes_AfterScaledDuration_ConsumingInputs`
 - `MissingIngredient_Idles_WithoutConsuming`
 - `OutputBlocked_HoldsFinishedItem_UntilSpace`
-- `FullChain_RawToTruthShard`（集成：两条采集线+轨道+两级法阵 → 5000 tick 内产出 truth_shard——**M3 的机器可读验收**）
+- `FullChain_RawToTruthShard` (integration: two harvest lines + rails + two-stage circles → produce a truth_shard within 5000 ticks — **M3's machine-readable acceptance**)
 
 Commit: `feat(items): transmutation recipes and full production chain test`
 
-### Task 5: 解锁树雏形（TDD）
+### Task 5: Unlock Tree First Draft (TDD)
 
-**Files:** Create `SimCore/Progression/UnlockState.cs`；Modify `Simulation`（放置/刻录校验解锁；`SpendShardsCommand`）；Test `ProgressionTests.cs`
+**Files:** Create `SimCore/Progression/UnlockState.cs`; Modify `Simulation` (placement/inscription validates unlocks; `SpendShardsCommand`); Test `ProgressionTests.cs`
 
-测试清单：`LockedModule_PlacementRejected`、`SpendShards_UnlocksTier_EmitsEvent`、`UnlockState_SurvivesSaveRoundTrip`
+Test checklist: `LockedModule_PlacementRejected`, `SpendShards_UnlocksTier_EmitsEvent`, `UnlockState_SurvivesSaveRoundTrip`
 
 Commit: `feat(progression): shard-gated unlock tiers`
 
-### Task 6: 表现层——模块建造、导轨、法阵、轨道物品（灰盒）
+### Task 6: Presentation Layer — Module Building, Conduits, Circles, Rail Items (Gray-Box)
 
-**Files:** Modify `BuildController`（建造栏扩展为模块列表 UI——底部热键栏 1-9；模块/导轨/轨道的灰盒视图；轨道上物品用 MultiMesh 或简单 MeshInstance 插值）；能量满足率的视觉初版：结构 emission 亮度 = 满足率（shader 参数，M4 再美化）
+**Files:** Modify `BuildController` (build bar expanded into a module-list UI — bottom hotkey bar 1-9; gray-box views for modules/conduits/rails; items on rails rendered via MultiMesh or simple MeshInstance interpolation); first-pass energy satisfaction visual: structure emission brightness = satisfaction ratio (shader parameter; polish deferred to M4)
 
-手动验收（M3 玩法验收）：铺一条"采集棱镜结构 → 浮运轨道 → 转化法阵 → 轨道 → 储存碑"的产线，接魔力泉供能，观察满载降速；断导轨看物品停驻、拆桥模块看结构分裂；攒 2 碎片解锁 Tier1。
+Manual acceptance (M3 gameplay acceptance): lay out a production line of "harvest prism structure → hover rail → transmutation circle → rail → storage obelisk", hook it up to a mana spring for power, observe throttling under full load; cut a conduit and watch items halt in place; demolish a bridge module and watch the structure split; accumulate 2 shards and unlock Tier1.
 
 Commit: `feat(game): gray-box production line building and views`
 
-### Task 7: 存档扩展 + 回归
+### Task 7: Save Extension + Regression
 
-多方块结构/能量网/轨道物品/法阵进度/解锁状态全部入档往返（追加 SaveRoundTripTests 用例：`FullFactory_SurvivesRoundTrip_AndKeepsProducing`）。`dotnet test` 全绿 + 试玩回归。
+Multi-block structures / energy networks / rail items / circle progress / unlock state all go through the save round-trip (add a SaveRoundTripTests case: `FullFactory_SurvivesRoundTrip_AndKeepsProducing`). `dotnet test` all green + playtest regression.
 
 Commit: `feat(sim): full factory state in save round-trip`
 
-## 月末完成定义（= M3 验收）
+## End-of-month definition of done (= M3 acceptance)
 
-- 从原料到真理碎片的全自动产线可搭建、可存档、断电降速、拆除分裂全部正确
-- 三个新子系统互不引用（代码评审确认 + AGENTS.md 结构地图更新）
-- 集成测试 `FullChain_RawToTruthShard` 与 `FullFactory_SurvivesRoundTrip` 常绿
+- A fully automated production line from raw materials to truth shards can be built, can be saved, throttles on power loss, and splits correctly on demolition — all correct
+- The three new subsystems do not reference one another (confirmed by code review + AGENTS.md structure map updated)
+- Integration tests `FullChain_RawToTruthShard` and `FullFactory_SurvivesRoundTrip` stay green
 
-## 明确不做（本月）
+## Explicitly out of scope (this month)
 
-- 信号/蓝图库（M5）、一切美化（M4）、性能优化（除非试玩明显掉帧——先测量再动手）
+- Signals/blueprint library (M5), all polish (M4), performance optimization (unless playtests show obvious frame drops — measure first, then act)

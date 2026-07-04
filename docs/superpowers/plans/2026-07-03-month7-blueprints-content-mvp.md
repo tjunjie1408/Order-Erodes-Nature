@@ -1,92 +1,92 @@
-# 第 7 个月：M5 收尾——蓝图库、内容补足与 MVP 验收 实现计划
+# Month 7: M5 Wrap-up — Blueprint Library, Content Fill-out, and MVP Acceptance Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **开工前校准（必读）**：核对前六个月实际接口；本月以"MVP 完成定义"为唯一北极星，任何与验收无关的新点子一律进 backlog。
+> **Pre-start calibration (required reading):** Verify against the actual interfaces from the previous six months; this month the "MVP definition of done" is the sole north star — any new idea unrelated to acceptance goes straight to the backlog.
 
-**Goal:** 符文蓝图库（写一次部署一支舰队）、核心上限、内容补足（≥10 模块/≥15 节点/3 层解锁全通）、无文本新手引导，最终对照规格逐条完成 MVP 验收。
+**Goal:** Rune blueprint library (write once, deploy a whole fleet), core limit, content fill-out (≥10 modules / ≥15 nodes / all 3 unlock tiers fully traversable), wordless tutorial, and finally complete MVP acceptance item-by-item against the spec.
 
-**Architecture:** 蓝图库落在 SimCore（`SimCore/Blueprints/`）：蓝图 = 命名的 `CircuitGraphData` + 编译缓存（BlueprintId → CompiledCircuit，编译一次多机共享——规格 §5"指令数组静态绑定到蓝图 ID"在此兑现）。魔像存档从"内嵌 GraphJson"迁移为"引用 BlueprintId"（匿名刻录自动生成隐式蓝图，兼容旧档走版本迁移 v2→v3）。
+**Architecture:** The blueprint library lives in SimCore (`SimCore/Blueprints/`): a blueprint = a named `CircuitGraphData` + compilation cache (BlueprintId → CompiledCircuit, compiled once and shared across machines — this is where spec §5 "instruction arrays statically bound to blueprint IDs" is fulfilled). Golem save data migrates from "embedded GraphJson" to "reference by BlueprintId" (anonymous inscription auto-generates an implicit blueprint; old saves are handled via version migration v2→v3).
 
-**规格来源:** 设计文档 §5（蓝图库/核心上限）、§8（MVP 完成定义）、§9（测试策略）
+**Spec sources:** Design doc §5 (blueprint library / core limit), §8 (MVP definition of done), §9 (testing strategy)
 
 ## Global Constraints
 
-- 同前全部铁律。新增（规格"蓝图更新是惰性且安全的"）：编译缓存以 BlueprintId 为键；**直接对单机刻录 = 立即 Reset（编辑者明确意图）；蓝图修改 = 引用者仅标记 `PendingUpdate`**，在 PC 回到程序入口（天然循环边界）时静默切换新指令流，崩溃态/手动 Reset 时也切换——禁止对舰队瞬间集体 Reset（半空中的运输魔像会僵死、载货的会拿着货重跑初始逻辑）
+- All prior ironclad rules still apply. New (spec: "blueprint updates are lazy and safe"): the compilation cache is keyed by BlueprintId; **direct inscription onto a single machine = immediate Reset (the editor's explicit intent); blueprint edits = subscribers are only marked `PendingUpdate`**, silently swapping to the new instruction stream when the PC returns to the program entry (a natural loop boundary), and also swapping on crash state / manual Reset — mass-resetting a fleet instantaneously is forbidden (mid-flight transport golems would freeze in place, cargo-laden ones would re-run their initial logic while holding goods)
 
-## 任务清单
+## Task List
 
-### Task 1: 蓝图库（TDD）
+### Task 1: Blueprint Library (TDD)
 
-**Files:** Create `SimCore/Blueprints/BlueprintLibrary.cs`；Modify 刻录指令族（`SaveBlueprintCommand(name, graph)`、`InscribeBlueprintCommand(golemId, blueprintId)`）、`SimCore/Persistence`（v3：蓝图表 + 魔像引用 BlueprintId；v2→v3 迁移）；Test `BlueprintTests.cs`
+**Files:** Create `SimCore/Blueprints/BlueprintLibrary.cs`; Modify the inscription command family (`SaveBlueprintCommand(name, graph)`, `InscribeBlueprintCommand(golemId, blueprintId)`), `SimCore/Persistence` (v3: blueprint table + golems referencing BlueprintId; v2→v3 migration); Test `BlueprintTests.cs`
 
-测试清单：
-- `SaveBlueprint_CompilesOnce_SharedAcrossGolems`（两魔像刻同一蓝图，`CompiledCircuit` 引用相等）
-- `EditBlueprint_MarksSubscribersPending_WithoutImmediateReset`（正在执行动作的引用者不被打断）
-- `PendingSubscriber_SwapsAtLoopBoundary`（PC 回到入口时切换新指令流，货物与位置保留）
+Test list:
+- `SaveBlueprint_CompilesOnce_SharedAcrossGolems` (two golems inscribed with the same blueprint share a reference-equal `CompiledCircuit`)
+- `EditBlueprint_MarksSubscribersPending_WithoutImmediateReset` (subscribers currently executing an action are not interrupted)
+- `PendingSubscriber_SwapsAtLoopBoundary` (swaps to the new instruction stream when the PC returns to the entry point; cargo and position are preserved)
 - `CrashedSubscriber_SwapsOnReset`
-- `PendingUpdate_SurvivesSaveRoundTrip`（半切换状态入档往返）
-- `DeleteBlueprintInUse_IsRejected`（错误码 `blueprint_in_use`）
+- `PendingUpdate_SurvivesSaveRoundTrip` (half-swapped state round-trips through the save)
+- `DeleteBlueprintInUse_IsRejected` (error code `blueprint_in_use`)
 - `V2Save_MigratesGolemGraphsToImplicitBlueprints`
 
-UI：编辑器加"保存为蓝图/从蓝图加载"下拉 + 蓝图管理面板（重命名/删除/引用计数显示）。
+UI: Add a "save as blueprint / load from blueprint" dropdown to the editor + a blueprint management panel (rename / delete / reference count display).
 
 Commit: `feat(blueprints): named circuit library with shared compilation`
 
-### Task 2: 核心上限（TDD）
+### Task 2: Core Limit (TDD)
 
-**Files:** Modify `SimCore/Progression`（活跃魔像上限：初始 2，Tier2 → 4，Tier4 → 8；超限的 SpawnGolem 拒绝，错误码 `core_limit`）；Tier4 = 蓝图库 + 核心上限 + 高级模块，门槛 20 碎片
-- Test：`GolemSpawn_RejectedAtCoreLimit`、`Tier4_RaisesLimit`
+**Files:** Modify `SimCore/Progression` (active golem limit: initially 2, Tier2 → 4, Tier4 → 8; SpawnGolem over the limit is rejected with error code `core_limit`); Tier4 = blueprint library + core limit + advanced modules, threshold 20 truth shards
+- Test: `GolemSpawn_RejectedAtCoreLimit`, `Tier4_RaisesLimit`
 - Commit: `feat(progression): core limit and tier4`
 
-### Task 3: 内容补足（数据表工作）
+### Task 3: Content Fill-out (data-table work)
 
-**Files:** Modify `NodeCatalog`/`ModuleCatalog`/`RecipeCatalog`——补至规格量：
-- 节点补至目标量：已有 16（月2 的 10 + 月3 的 2 个相对寻址传感 + 月6 的 4；测试专用节点不计），≥15 已达标——本月按体验缺口补 `data_arith`（加减乘）、`data_counter`（计数器，VM 局部状态）、`action_toggle_structure`（启停目标结构）、`sensor_detect_items`（探测范围物品数），共 20 个
-- 模块补至 ≥10：已有 9 → 补 `module_beacon`（信标，可配置广播）、高级模块 `module_overclock_core`（Tier4：速度 ×2、能耗 ×3——给 Tier4 一个值得攒 20 碎片的理由）
-- 每个新节点/模块：目录定义 + 编译器/VM 支持（如需新 OpCode）+ 单测 + 灰盒→正式模型（复用 M4 管线）+ 音效绑定
-- 配方微调：保证三层解锁的碎片曲线可在 3-5 小时通完（试玩标定）
+**Files:** Modify `NodeCatalog`/`ModuleCatalog`/`RecipeCatalog` — fill up to the spec quantities:
+- Fill nodes up to the target quantity: 16 already exist (Month 2's 10 + Month 3's 2 relative-addressing sensors + Month 6's 4; test-only nodes not counted), so ≥15 is already met — this month, add nodes based on experience gaps: `data_arith` (add/subtract/multiply), `data_counter` (counter, VM-local state), `action_toggle_structure` (start/stop a target structure), `sensor_detect_items` (detect item count within range), for a total of 20
+- Fill modules up to ≥10: 9 already exist → add `module_beacon` (beacon, configurable broadcast) and the advanced module `module_overclock_core` (Tier4: speed ×2, energy cost ×3 — gives Tier4 a reason worth saving up 20 shards for)
+- For each new node/module: catalog definition + compiler/VM support (new OpCode if needed) + unit tests + graybox → final model (reuse the M4 pipeline) + sound binding
+- Recipe fine-tuning: ensure the shard curve for all three unlock tiers can be completed in 3-5 hours (calibrated via playtesting)
 
-Commit 按节点/模块分批。
+Commits batched per node/module.
 
-### Task 4: 无文本新手引导
+### Task 4: Wordless Tutorial
 
-**Files:** Create `game/scripts/TutorialDirector.cs`（状态机监听 SimEvent 推进阶段）+ 引导视觉（发光指引线、目标结构轮廓高亮、编辑器首次打开时预置半成品回路——缺一条连线，玩家补上即完成第一课）
-- 阶段：①走到初始魔像旁 → ②打开编辑器 → ③补全预置回路并刻录 → ④魔像开始工作 → ⑤指引第一个魔力泉 → 结束（此后靠解锁树牵引）
-- 规格约束：无叙事无文本——引导只用视觉语言（光线、高亮、图标），UI 提示仅限操作键位图标
-- 验收：找一位没看过项目的朋友试玩，不提示的情况下 10 分钟内完成第一条采集回路
+**Files:** Create `game/scripts/TutorialDirector.cs` (a state machine that listens to SimEvent to advance stages) + guidance visuals (glowing guide lines, highlighted outline of the target structure, a half-finished circuit pre-placed in the editor on first open — one connection missing, the player completes it and the first lesson is done)
+- Stages: ① walk up to the initial golem → ② open the editor → ③ complete the pre-placed circuit and inscribe it → ④ the golem starts working → ⑤ guide to the first mana spring → end (from then on the unlock tree carries the player)
+- Spec constraint: no narrative, no text — guidance uses only visual language (light rays, highlights, icons); UI hints are limited to input-key icons
+- Acceptance: find a friend who has never seen the project to playtest; without hints, they complete the first gathering circuit within 10 minutes
 
 Commit: `feat(game): wordless tutorial director`
 
-### Task 5: MVP 验收（对照规格逐条）
+### Task 5: MVP Acceptance (item-by-item against the spec)
 
-规格 §8 MVP 完成定义逐条验收，每条一个证据（测试或试玩录像）：
+Accept each item of the spec §8 MVP definition of done, with one piece of evidence per item (a test or a playtest recording):
 
-| 验收条 | 证据形式 |
+| Acceptance item | Evidence form |
 |---|---|
-| 给魔像编写采集程序 | 教学流程试玩录像 |
-| 拼装出第一条自动产线 | `FullChain_RawToTruthShard` 常绿 + 试玩 |
-| 用信号让两台魔像协作 | `CooperationTests` 常绿 + 试玩 |
-| 解锁至少一层科技 | `ProgressionTests` + 试玩 |
-| 存档退出再读档继续 | 迁移链测试 + 试玩（含关进程重开） |
-| 新玩家无引导可完成上述 | 外部试玩者实测（≥2 人） |
+| Write a gathering program for a golem | Playtest recording of the tutorial flow |
+| Assemble the first automated production line | `FullChain_RawToTruthShard` evergreen + playtest |
+| Use signals to make two golems cooperate | `CooperationTests` evergreen + playtest |
+| Unlock at least one tech tier | `ProgressionTests` + playtest |
+| Save, quit, then load and continue | Migration-chain tests + playtest (including closing and reopening the process) |
+| A new player can accomplish the above without guidance | Real test with external playtesters (≥2 people) |
 
-附加工程验收：
-- 性能冒烟：脚本化铺设 500 结构 + 8 魔像 + 满负荷产线，tick 耗时 < 10ms、帧率 ≥ 60（不达标 → 按规格预案上 MultiMesh/数据布局优化，先测量后动手）
-- `dotnet test` 全绿；`grep -r "using Godot" SimCore/` 为空；CREDITS.md 与实际素材一一对应
+Additional engineering acceptance:
+- Performance smoke test: scripted placement of 500 structures + 8 golems + a full-load production line, tick time < 10ms, frame rate ≥ 60 (if not met → apply the spec's contingency plan of MultiMesh / data-layout optimization; measure first, then act)
+- `dotnet test` all green; `grep -r "using Godot" SimCore/` is empty; CREDITS.md corresponds one-to-one with the actual assets
 
 Commit: `chore: mvp acceptance evidence and performance smoke`
 
-### Task 6: 发布一个可分发的 Demo 构建
+### Task 6: Ship a Distributable Demo Build
 
-**Files:** Godot 导出预设（Windows），打包 zip 发给试玩者
-- 图标/窗口标题/版本号 0.1.0；导出模板安装与一键导出脚本
+**Files:** Godot export preset (Windows), packaged as a zip and sent to playtesters
+- Icon / window title / version number 0.1.0; export template installation and a one-click export script
 - Commit: `chore: v0.1.0 demo export preset`
 
-## 月末完成定义（= MVP 达成）
+## End-of-month definition of done (= MVP achieved)
 
-规格 §8 六条全过 + 性能冒烟达标 + 可分发 zip。达成后开香槟，然后回到设计文档 §2 的 backlog（植被枯萎、真理核心矩阵、月相魔力……）规划下一阶段。
+All six items of spec §8 pass + performance smoke test meets targets + distributable zip. Once achieved, pop the champagne, then return to the design doc §2 backlog (vegetation withering, truth core matrix, lunar-phase mana...) to plan the next phase.
 
-## 明确不做（本月）
+## Explicitly out of scope (this month)
 
-- Steam 页面/宣传（MVP 验证后再议）、多语言、任何 backlog 项
+- Steam page / marketing (revisit after MVP validation), localization, any backlog items

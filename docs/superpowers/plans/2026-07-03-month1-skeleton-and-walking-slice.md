@@ -1,90 +1,90 @@
-# 第 1 个月：M0 骨架 + M1 行走切片 实现计划
+# Month 1: M0 Skeleton + M1 Walking Slice Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立 SimCore 仿真骨架（tick/指令/事件/存档往返）并打通 Godot 端到端：灰盒地形上第三人称角色行走，通过仿真指令放置/拆除网格方块。
+**Goal:** Establish the SimCore simulation skeleton (tick/command/event/save round-trip) and wire up Godot end-to-end: a third-person character walking on gray-box terrain, placing/removing grid blocks via simulation commands.
 
-**Architecture:** 纯 C# 类库 SimCore（net8.0，零 Godot 依赖）承载全部仿真逻辑，xUnit 测试驱动；Godot 4.4+ (.NET) 项目 `game/` 通过固定步长累加器驱动 `Simulation.Tick()`，表现层只发指令、读事件。本月全部视觉为灰盒（几何体占位），不引入任何素材。
+**Architecture:** A pure C# class library, SimCore (net8.0, zero Godot dependencies), hosts all simulation logic, driven by xUnit tests; the Godot 4.4+ (.NET) project `game/` drives `Simulation.Tick()` through a fixed-timestep accumulator, and the presentation layer only sends commands and reads events. All visuals this month are gray-box (placeholder geometry); no assets are introduced.
 
-**Tech Stack:** .NET 8 SDK、xUnit、Godot 4.4+ .NET 版、System.Text.Json
+**Tech Stack:** .NET 8 SDK, xUnit, Godot 4.4+ .NET edition, System.Text.Json
 
-**规格来源:** `docs/superpowers/specs/2026-07-03-magic-automation-game-design.md`
+**Spec source:** `docs/superpowers/specs/2026-07-03-magic-automation-game-design.md`
 
-## 月度路线图（全部 7 份计划见本目录 [README.md](README.md)）
+## Monthly Roadmap (all 7 plans listed in this directory's [README.md](README.md))
 
-| 月 | 对应里程碑 | 内容概要 |
+| Month | Corresponding milestone | Content summary |
 |---|---|---|
-| 1 | M0 + M1 前半 | 本计划 |
-| 2 | M1 收尾 + M2 开始 | Mixamo 角色替换灰盒、回路数据模型与编译器、VM 雏形 |
-| 3 | M2 | GraphEdit 编辑器、可挂起 VM、7 个节点、魔像端到端 |
-| 4 | M3 | 多方块拼装、能量网络、浮运轨道、转化法阵 |
-| 5 | M4 | shader 套件、故障美学、音效、UI 主题 |
-| 6-7 | M5 | 存档完善、信号系统、蓝图库、内容补足 |
+| 1 | M0 + first half of M1 | This plan |
+| 2 | Finish M1 + start M2 | Replace gray-box with Mixamo character, circuit data model and compiler, VM prototype |
+| 3 | M2 | GraphEdit editor, suspendable VM, 7 nodes, golem end-to-end |
+| 4 | M3 | Multi-block assembly, energy network, hover rails, transmutation circle |
+| 5 | M4 | Shader kit, glitch aesthetics, sound effects, UI theme |
+| 6-7 | M5 | Save-system completion, signal system, blueprint library, content fill-out |
 
-每月开始时基于上月实际进度写当月详细计划。
+At the start of each month, write that month's detailed plan based on the previous month's actual progress.
 
 ## Global Constraints
 
-- SimCore 禁止 `using Godot`（任何形式的 Godot 依赖）
-- SimCore 子系统之间禁止直接引用，只通过事件或纯数据结构交互
-- 仿真固定 20 tps；指令只在 tick 边界被消费；表现层永不直接写仿真状态
-- 热路径（Tick 内部）禁止分配：无 LINQ、无临时集合 new（本月骨架允许指令/事件对象本身的分配）
-- 存档状态只含平凡值类型，禁止委托/Lambda/引用回调入档
-- git 提交信息**不写 Co-Authored-By**
-- 所有新素材/第三方内容必须 CC0 或明确可商用（本月无素材引入）
-- Windows 环境，shell 为 PowerShell；`godot` 指 Godot 4.4+ .NET 版可执行文件
+- SimCore forbids `using Godot` (any form of Godot dependency)
+- Direct references between SimCore subsystems are forbidden; they interact only through events or pure data structures
+- The simulation runs at a fixed 20 tps; commands are consumed only at tick boundaries; the presentation layer never writes simulation state directly
+- No allocations on the hot path (inside Tick): no LINQ, no new-ing temporary collections (this month's skeleton allows allocation of the command/event objects themselves)
+- Save state contains only trivial value types; delegates/lambdas/reference callbacks are forbidden in saves
+- git commit messages **must not include Co-Authored-By**
+- All new assets/third-party content must be CC0 or explicitly commercially usable (no assets introduced this month)
+- Windows environment, shell is PowerShell; `godot` refers to the Godot 4.4+ .NET edition executable
 
-## 前置条件（Task 1 的 Step 0 验证）
+## Prerequisites (verified in Task 1's Step 0)
 
-- .NET 8 SDK 已安装（`dotnet --version` ≥ 8.0）
-- Godot 4.4+ **.NET 版**已下载（godotengine.org/download，必须选 ".NET" 变体），解压后记下 exe 路径
+- .NET 8 SDK installed (`dotnet --version` ≥ 8.0)
+- Godot 4.4+ **.NET edition** downloaded (godotengine.org/download, must pick the ".NET" variant); note the exe path after extracting
 
-## 文件结构（本月新建）
+## File Structure (new this month)
 
 ```
 dev_game.sln
 .gitignore
-AGENTS.md                                Codex 项目说明书（架构铁律）
-CREDITS.md                               素材许可台账（先建空表）
-docs/backlog.md                          范围外点子停车场
-SimCore/SimCore.csproj                   net8.0 类库
-SimCore/GridPos.cs                       网格坐标值类型
-SimCore/Commands.cs                      指令类型定义
-SimCore/SimEvents.cs                     事件类型定义
-SimCore/Structure.cs                     结构（占位方块）实体
-SimCore/Simulation.cs                    tick 循环、指令队列、事件缓冲、网格状态
-SimCore/Persistence/SaveData.cs          存档 DTO
-SimCore/Persistence/SaveSerializer.cs    JSON 序列化 + 快照
+AGENTS.md                                Codex project handbook (architecture iron rules)
+CREDITS.md                               Asset license ledger (start with an empty table)
+docs/backlog.md                          Parking lot for out-of-scope ideas
+SimCore/SimCore.csproj                   net8.0 class library
+SimCore/GridPos.cs                       Grid coordinate value type
+SimCore/Commands.cs                      Command type definitions
+SimCore/SimEvents.cs                     Event type definitions
+SimCore/Structure.cs                     Structure (placeholder block) entity
+SimCore/Simulation.cs                    Tick loop, command queue, event buffer, grid state
+SimCore/Persistence/SaveData.cs          Save DTO
+SimCore/Persistence/SaveSerializer.cs    JSON serialization + snapshot
 SimCore.Tests/SimCore.Tests.csproj       xUnit
 SimCore.Tests/SimulationTests.cs
 SimCore.Tests/PlacementTests.cs
 SimCore.Tests/SaveRoundTripTests.cs
-game/project.godot                       Godot 项目（编辑器创建）
-game/game.csproj                         Godot 生成，需加 SimCore 引用
-game/scenes/Main.tscn                    主场景
-game/scripts/Main.cs                     灰盒地形构建 + 组装
-game/scripts/SimDriver.cs                固定步长累加器桥
-game/scripts/PlayerController.cs         第三人称控制器
-game/scripts/BuildController.cs          幽灵预览 + 放置/拆除 + 结构视图
+game/project.godot                       Godot project (created by the editor)
+game/game.csproj                         Generated by Godot; needs a SimCore reference added
+game/scenes/Main.tscn                    Main scene
+game/scripts/Main.cs                     Gray-box terrain construction + assembly
+game/scripts/SimDriver.cs                Fixed-timestep accumulator bridge
+game/scripts/PlayerController.cs         Third-person controller
+game/scripts/BuildController.cs          Ghost preview + place/remove + structure views
 ```
 
 ---
 
-### Task 1: 解决方案骨架与冒烟测试
+### Task 1: Solution Skeleton and Smoke Test
 
 **Files:**
 - Create: `dev_game.sln`, `SimCore/SimCore.csproj`, `SimCore.Tests/SimCore.Tests.csproj`, `.gitignore`
-- Create: `SimCore/GridPos.cs`, `SimCore.Tests/SimulationTests.cs`（先只放冒烟测试）
+- Create: `SimCore/GridPos.cs`, `SimCore.Tests/SimulationTests.cs` (smoke test only for now)
 
 **Interfaces:**
-- Produces: `SimCore.GridPos`（`readonly record struct GridPos(int X, int Y, int Z)`），后续所有任务使用
+- Produces: `SimCore.GridPos` (`readonly record struct GridPos(int X, int Y, int Z)`), used by all subsequent tasks
 
-- [ ] **Step 0: 验证前置条件**
+- [ ] **Step 0: Verify prerequisites**
 
 Run: `dotnet --version`
-Expected: 8.x 或更高。若无，停下让用户安装 .NET 8 SDK。
+Expected: 8.x or higher. If missing, stop and have the user install the .NET 8 SDK.
 
-- [ ] **Step 1: 创建 solution 与项目**
+- [ ] **Step 1: Create solution and projects**
 
 ```powershell
 dotnet new sln -n dev_game
@@ -95,7 +95,7 @@ dotnet add SimCore.Tests reference SimCore
 Remove-Item SimCore/Class1.cs, SimCore.Tests/UnitTest1.cs
 ```
 
-- [ ] **Step 2: 写 .gitignore**
+- [ ] **Step 2: Write .gitignore**
 
 ```gitignore
 # .NET
@@ -113,7 +113,7 @@ Thumbs.db
 .DS_Store
 ```
 
-- [ ] **Step 3: 写 GridPos 与冒烟测试**
+- [ ] **Step 3: Write GridPos and the smoke test**
 
 `SimCore/GridPos.cs`:
 ```csharp
@@ -139,7 +139,7 @@ public class SimulationTests
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [ ] **Step 4: Run tests and confirm they pass**
 
 Run: `dotnet test`
 Expected: `Passed! - 1 test`
@@ -153,78 +153,78 @@ git commit -m "chore: solution skeleton with SimCore classlib and xunit tests"
 
 ---
 
-### Task 2: 项目基建文档（AGENTS.md / CREDITS.md / backlog.md）
+### Task 2: Project Infrastructure Docs (AGENTS.md / CREDITS.md / backlog.md)
 
 **Files:**
 - Create: `AGENTS.md`, `CREDITS.md`, `docs/backlog.md`
 
 **Interfaces:**
-- Produces: 无代码接口；AGENTS.md 是之后所有 Codex 会话的行为契约
+- Produces: no code interfaces; AGENTS.md is the behavioral contract for all subsequent Codex sessions
 
-- [ ] **Step 1: 写 AGENTS.md**
+- [ ] **Step 1: Write AGENTS.md**
 
 ```markdown
-# AGENTS.md — 项目协作契约
+# AGENTS.md — Project Collaboration Contract
 
-## 项目是什么
-《秩序侵蚀自然》：Godot 4 + C# 的 3D 自动化建造游戏。
-设计文档：docs/superpowers/specs/2026-07-03-magic-automation-game-design.md（布置任务引用章节，不重新发明）。
+## What this project is
+*Order Erodes Nature*: a 3D automation-building game in Godot 4 + C#.
+Design doc: docs/superpowers/specs/2026-07-03-magic-automation-game-design.md (task assignments reference its sections; do not reinvent).
 
-## 架构铁律（违反即打回）
-1. SimCore/ 禁止 `using Godot`。仿真逻辑不依赖引擎。
-2. SimCore 内子系统（回路VM、能量网络、物品流、建造拓扑）禁止直接互相引用，
-   只通过事件或纯数据结构交互。
-3. 表现层（game/）只发指令、读状态与事件，永不直接写仿真状态。
-4. `Simulation.Tick()` 及其调用链禁止分配：无 LINQ、无临时集合。
-5. 存档状态只含平凡值类型，禁止委托/Lambda 入档。
-6. 运行中的回路指令流只读；回路或结构模块变更一律复位 VM。
-7. 隐式分配黑名单：热路径禁止经接口类型 foreach（枚举器装箱）、
-   禁止 struct 转型接口（装箱）、禁止字符串插值/日志拼接。
-8. 入档浮点禁止小数位截断（截断=存档篡改仿真状态）；
-   依赖 System.Text.Json 的最短可往返格式保证位级往返。
+## Architecture iron rules (violations get sent back)
+1. SimCore/ forbids `using Godot`. Simulation logic does not depend on the engine.
+2. Subsystems inside SimCore (circuit VM, energy network, item flow, build topology) must not reference
+   each other directly; they interact only through events or pure data structures.
+3. The presentation layer (game/) only sends commands and reads state and events; it never writes simulation state directly.
+4. `Simulation.Tick()` and its call chain must not allocate: no LINQ, no temporary collections.
+5. Save state contains only trivial value types; delegates/lambdas are forbidden in saves.
+6. A running circuit's instruction stream is read-only; any change to a circuit or structure module always resets the VM.
+7. Hidden-allocation blacklist: on the hot path, no foreach over interface types (enumerator boxing),
+   no casting structs to interfaces (boxing), no string interpolation/log concatenation.
+8. Floating-point values written to saves must not have decimal places truncated (truncation = the save tampering with simulation state);
+   rely on System.Text.Json's shortest round-trippable format to guarantee bit-level round-tripping.
 
-## 项目结构
-- SimCore/ — 纯 C# 仿真核心（net8.0）
-- SimCore.Tests/ — xUnit 测试
-- game/ — Godot 项目（场景、shader、表现层脚本）
-- docs/ — 设计文档、计划、backlog
+## Project structure
+- SimCore/ — pure C# simulation core (net8.0)
+- SimCore.Tests/ — xUnit tests
+- game/ — Godot project (scenes, shaders, presentation-layer scripts)
+- docs/ — design docs, plans, backlog
 
-## 工作方式
-- 测试命令：`dotnet test`（改 SimCore 必跑）
-- SimCore 采用 TDD：先写失败测试再实现。
-- 每个任务一个 commit。commit 信息不写 Co-Authored-By。
-- 不确定的 Godot API 先查 https://docs.godotengine.org/en/stable/ 再动手。
-- 新增第三方依赖、跨模块重构、更改本文件规则：必须先经开发者批准。
-- 范围外的点子写进 docs/backlog.md，不实现。
-- 任务上下文只包含当前子系统代码与相邻子系统的接口契约，
-  不要求也不应阅读相邻子系统实现；发现接口不够用时上报而非自行改接口。
+## Working practices
+- Test command: `dotnet test` (must run whenever SimCore changes)
+- SimCore uses TDD: write a failing test first, then implement.
+- One commit per task. Commit messages must not include Co-Authored-By.
+- For uncertain Godot APIs, consult https://docs.godotengine.org/en/stable/ before acting.
+- Adding third-party dependencies, cross-module refactors, or changing the rules in this file: requires developer approval first.
+- Out-of-scope ideas go into docs/backlog.md; do not implement them.
+- Task context includes only the current subsystem's code and the interface contracts of adjacent subsystems;
+  reading adjacent subsystems' implementations is neither required nor allowed. If an interface proves insufficient, report it rather than changing the interface yourself.
 
-## 代码风格
-- C# 标准命名（PascalCase 公有、_camelCase 私有字段）
-- 文件小而聚焦：一个类型一个文件；场景小而多：一个模块一个场景
+## Code style
+- Standard C# naming (PascalCase public, _camelCase private fields)
+- Files small and focused: one type per file; scenes small and numerous: one module per scene
 ```
 
-- [ ] **Step 2: 写 CREDITS.md**
+- [ ] **Step 2: Write CREDITS.md**
 
 ```markdown
-# CREDITS — 素材许可台账
+# CREDITS — Asset License Ledger
 
-每引入一个外部素材记一行。只收 CC0 或明确可商用许可，避开 NC 条款。
+Record one row for every external asset introduced. Only accept CC0 or explicitly commercially usable licenses; avoid NC clauses.
 
-| 素材 | 来源 | 许可 | 用途 |
+| Asset | Source | License | Usage |
 |---|---|---|---|
-| （暂无） | | | |
+| (none yet) | | | |
 ```
 
-- [ ] **Step 3: 写 docs/backlog.md**
+- [ ] **Step 3: Write docs/backlog.md**
 
 ```markdown
-# Backlog — 范围外点子停车场
+# Backlog — Parking Lot for Out-of-Scope Ideas
 
-当前里程碑之外的点子一律记在这里，不实现。
+All ideas outside the current milestone go here; do not implement them.
 
-- 崩溃结构周边植被枯萎沙化（后 MVP，来自设计文档氛围机制）
-- 真理核心矩阵填装交互（后 MVP，MVP 用简单面板占位）
+- Vegetation withering and desertification around collapsed structures (post-MVP, from the design doc's atmosphere mechanics)
+- Truth core matrix loading interaction (post-MVP; the MVP uses a simple placeholder panel)
 ```
 
 - [ ] **Step 4: Commit**
@@ -236,23 +236,23 @@ git commit -m "docs: add AGENTS.md contract, credits ledger, and backlog"
 
 ---
 
-### Task 3: Simulation 核心——tick、指令队列、事件缓冲
+### Task 3: Simulation Core — Tick, Command Queue, Event Buffer
 
 **Files:**
 - Create: `SimCore/Commands.cs`, `SimCore/SimEvents.cs`, `SimCore/Structure.cs`, `SimCore/Simulation.cs`
 - Modify: `SimCore.Tests/SimulationTests.cs`
 
 **Interfaces:**
-- Consumes: `GridPos`（Task 1）
+- Consumes: `GridPos` (Task 1)
 - Produces:
-  - `interface ICommand`（标记接口）
+  - `interface ICommand` (marker interface)
   - `abstract record SimEvent`
-  - `class Simulation`：`const int TicksPerSecond = 20`、`long TickCount { get; }`、`void EnqueueCommand(ICommand)`、`void Tick()`、`void DrainEvents(List<SimEvent> into)`
-  - 指令在 **Tick 开头** 被消费；事件由 Tick 产生、由调用者 Drain
+  - `class Simulation`: `const int TicksPerSecond = 20`, `long TickCount { get; }`, `void EnqueueCommand(ICommand)`, `void Tick()`, `void DrainEvents(List<SimEvent> into)`
+  - Commands are consumed at the **start of Tick**; events are produced by Tick and drained by the caller
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
-在 `SimCore.Tests/SimulationTests.cs` 中追加：
+Append to `SimCore.Tests/SimulationTests.cs`:
 
 ```csharp
 [Fact]
@@ -269,9 +269,9 @@ public void EnqueueCommand_IsNotAppliedUntilTick()
 {
     var sim = new Simulation();
     sim.EnqueueCommand(new PlaceStructureCommand("base_block", new GridPos(0, 0, 0)));
-    Assert.Empty(sim.Structures);          // 入队不生效
+    Assert.Empty(sim.Structures);          // enqueueing does not take effect
     sim.Tick();
-    Assert.Single(sim.Structures);         // tick 边界生效
+    Assert.Single(sim.Structures);         // takes effect at the tick boundary
 }
 
 [Fact]
@@ -286,16 +286,16 @@ public void DrainEvents_ReturnsEventsOnceAndClears()
     Assert.IsType<StructurePlaced>(events[0]);
     events.Clear();
     sim.DrainEvents(events);
-    Assert.Empty(events);                  // 第二次 drain 为空
+    Assert.Empty(events);                  // second drain is empty
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [ ] **Step 2: Run tests and confirm they fail**
 
 Run: `dotnet test`
-Expected: 编译错误（`Simulation`、`PlaceStructureCommand` 等类型不存在）——这是本步的"失败"形态。
+Expected: compile errors (types such as `Simulation` and `PlaceStructureCommand` do not exist) — this is the "failure" form for this step.
 
-- [ ] **Step 3: 最小实现**
+- [ ] **Step 3: Minimal implementation**
 
 `SimCore/Commands.cs`:
 ```csharp
@@ -360,7 +360,7 @@ public sealed class Simulation
         TickCount++;
     }
 
-    /// <summary>供表现层做幽灵预览的只读合法性校验（与 Apply 共用同一规则）。</summary>
+    /// <summary>Read-only validity check for the presentation layer's ghost preview (shares the same rule as Apply).</summary>
     public bool CanPlace(GridPos pos) => !_byPos.ContainsKey(pos);
 
     public void DrainEvents(List<SimEvent> into)
@@ -405,12 +405,12 @@ public sealed class Simulation
 }
 ```
 
-同时在测试文件顶部补 `using System.Collections.Generic;`（若隐式 using 已覆盖可省）。
+Also add `using System.Collections.Generic;` at the top of the test file (can be omitted if implicit usings already cover it).
 
-- [ ] **Step 4: 跑测试确认通过**
+- [ ] **Step 4: Run tests and confirm they pass**
 
 Run: `dotnet test`
-Expected: 全部 PASS（4 tests）
+Expected: all PASS (4 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -421,15 +421,15 @@ git commit -m "feat(sim): tick loop, command queue, event buffer with place/remo
 
 ---
 
-### Task 4: 放置规则测试补全（占用拒绝、拆除、事件内容）
+### Task 4: Completing the Placement-Rule Tests (occupancy rejection, removal, event contents)
 
 **Files:**
 - Create: `SimCore.Tests/PlacementTests.cs`
 
 **Interfaces:**
-- Consumes: Task 3 的全部类型。本任务只补测试锁行为，不加新实现（若测试暴露 bug 则修）。
+- Consumes: all types from Task 3. This task only adds tests to lock in behavior; no new implementation (fix bugs if the tests expose any).
 
-- [ ] **Step 1: 写测试**
+- [ ] **Step 1: Write tests**
 
 ```csharp
 using SimCore;
@@ -499,12 +499,12 @@ public class PlacementTests
 }
 ```
 
-（测试代码允许 LINQ；铁律只约束 Tick 热路径。）
+(LINQ is allowed in test code; the iron rules only constrain the Tick hot path.)
 
-- [ ] **Step 2: 跑测试**
+- [ ] **Step 2: Run tests**
 
 Run: `dotnet test`
-Expected: 全部 PASS（8 tests）。若有失败，修 `Simulation.Apply` 直至通过。
+Expected: all PASS (8 tests). If any fail, fix `Simulation.Apply` until they pass.
 
 - [ ] **Step 3: Commit**
 
@@ -515,22 +515,22 @@ git commit -m "test(sim): lock placement rules - occupancy, removal, preview par
 
 ---
 
-### Task 5: 存档往返与确定性
+### Task 5: Save Round-Trip and Determinism
 
 **Files:**
 - Create: `SimCore/Persistence/SaveData.cs`, `SimCore/Persistence/SaveSerializer.cs`
 - Create: `SimCore.Tests/SaveRoundTripTests.cs`
-- Modify: `SimCore/Simulation.cs`（追加 CreateSnapshot/FromSnapshot）
+- Modify: `SimCore/Simulation.cs` (append CreateSnapshot/FromSnapshot)
 
 **Interfaces:**
-- Consumes: `Simulation`、`Structure`、`GridPos`
+- Consumes: `Simulation`, `Structure`, `GridPos`
 - Produces:
-  - `class SaveData`：`int Version`、`long TickCount`、`int NextStructureId`、`List<StructureData> Structures`
-  - `class StructureData`：`int Id; string Type; int X; int Y; int Z;`（全平凡值）
-  - `static class SaveSerializer`：`string ToJson(SaveData)`、`SaveData FromJson(string)`
-  - `Simulation.CreateSnapshot() : SaveData` 与 `static Simulation.FromSnapshot(SaveData) : Simulation`
+  - `class SaveData`: `int Version`, `long TickCount`, `int NextStructureId`, `List<StructureData> Structures`
+  - `class StructureData`: `int Id; string Type; int X; int Y; int Z;` (all trivial values)
+  - `static class SaveSerializer`: `string ToJson(SaveData)`, `SaveData FromJson(string)`
+  - `Simulation.CreateSnapshot() : SaveData` and `static Simulation.FromSnapshot(SaveData) : Simulation`
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
 `SimCore.Tests/SaveRoundTripTests.cs`:
 ```csharp
@@ -562,7 +562,7 @@ public class SaveRoundTripTests
         var json = SaveSerializer.ToJson(original.CreateSnapshot());
         var restored = Simulation.FromSnapshot(SaveSerializer.FromJson(json));
 
-        // 快照的 JSON 表示必须完全一致
+        // The JSON representation of the snapshot must be exactly identical
         Assert.Equal(json, SaveSerializer.ToJson(restored.CreateSnapshot()));
         Assert.Equal(original.TickCount, restored.TickCount);
         Assert.Equal(original.Structures.Count, restored.Structures.Count);
@@ -581,7 +581,7 @@ public class SaveRoundTripTests
         restored.DrainEvents(events);
         var placed = Assert.Single(events.OfType<StructurePlaced>());
 
-        // 新 id 不与任何已有结构冲突
+        // The new id does not collide with any existing structure
         Assert.DoesNotContain(restored.Structures,
             s => s.Id == placed.StructureId && s.Position != placed.Position);
     }
@@ -597,12 +597,12 @@ public class SaveRoundTripTests
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [ ] **Step 2: Run tests and confirm they fail**
 
 Run: `dotnet test`
-Expected: 编译错误（`SaveSerializer`、`CreateSnapshot` 不存在）
+Expected: compile errors (`SaveSerializer`, `CreateSnapshot` do not exist)
 
-- [ ] **Step 3: 实现**
+- [ ] **Step 3: Implement**
 
 `SimCore/Persistence/SaveData.cs`:
 ```csharp
@@ -647,7 +647,7 @@ public static class SaveSerializer
 }
 ```
 
-在 `SimCore/Simulation.cs` 中追加（`using SimCore.Persistence;`）：
+Append to `SimCore/Simulation.cs` (with `using SimCore.Persistence;`):
 ```csharp
     public SaveData CreateSnapshot()
     {
@@ -656,7 +656,7 @@ public static class SaveSerializer
             TickCount = TickCount,
             NextStructureId = _nextStructureId,
         };
-        // 按 Id 排序保证快照字节级确定性
+        // Sort by Id to guarantee byte-level snapshot determinism
         foreach (var id in _byId.Keys.Order())
         {
             var s = _byId[id];
@@ -690,12 +690,12 @@ public static class SaveSerializer
     }
 ```
 
-注意：`TickCount` 的 setter 需从 `private set` 保持不变——`FromSnapshot` 在类内部可用对象初始化器赋值；`_nextStructureId` 为字段可直接赋值。`CreateSnapshot` 不在热路径（仅存档时调用），允许分配与排序。
+Note: the `TickCount` setter must stay `private set` — `FromSnapshot` can assign it via an object initializer from inside the class; `_nextStructureId` is a field and can be assigned directly. `CreateSnapshot` is not on the hot path (only called when saving), so allocations and sorting are allowed.
 
-- [ ] **Step 4: 跑测试确认通过**
+- [ ] **Step 4: Run tests and confirm they pass**
 
 Run: `dotnet test`
-Expected: 全部 PASS（11 tests）
+Expected: all PASS (11 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -706,30 +706,30 @@ git commit -m "feat(sim): save snapshot round-trip with determinism tests"
 
 ---
 
-### Task 6: Godot 项目接入与 SimDriver 固定步长桥
+### Task 6: Godot Project Integration and the SimDriver Fixed-Timestep Bridge
 
 **Files:**
-- Create: `game/project.godot`（Godot 编辑器生成）、`game/scenes/Main.tscn`、`game/scripts/Main.cs`、`game/scripts/SimDriver.cs`
-- Modify: `game/game.csproj`（加 SimCore 引用）、`dev_game.sln`
+- Create: `game/project.godot` (generated by the Godot editor), `game/scenes/Main.tscn`, `game/scripts/Main.cs`, `game/scripts/SimDriver.cs`
+- Modify: `game/game.csproj` (add SimCore reference), `dev_game.sln`
 
 **Interfaces:**
-- Consumes: `Simulation`、`SimEvent`
+- Consumes: `Simulation`, `SimEvent`
 - Produces:
-  - `SimDriver : Node`：`Simulation Sim { get; }`、`event Action<SimEvent>? SimEventEmitted`、每帧累加 delta 并以 20tps 调 `Sim.Tick()` 后逐个派发事件
-  - `Main : Node3D`：程序化灰盒地面；场景树 `Main/SimDriver`、`Main/UI/TickLabel`
+  - `SimDriver : Node`: `Simulation Sim { get; }`, `event Action<SimEvent>? SimEventEmitted`; accumulates delta each frame, calls `Sim.Tick()` at 20 tps, then dispatches events one by one
+  - `Main : Node3D`: procedural gray-box ground; scene tree `Main/SimDriver`, `Main/UI/TickLabel`
 
-- [ ] **Step 1: 创建 Godot 项目**
+- [ ] **Step 1: Create the Godot project**
 
-打开 Godot 4.4+ (.NET)，New Project → 路径选 `D:\self-learning\dev_game\game`，渲染器选 Forward+，创建后关闭编辑器。然后：
+Open Godot 4.4+ (.NET), New Project → choose path `D:\self-learning\dev_game\game`, choose the Forward+ renderer, create it, then close the editor. Then:
 
 ```powershell
 dotnet sln add game/game.csproj
 dotnet add game/game.csproj reference SimCore/SimCore.csproj
 ```
 
-（`game.csproj` 在 Godot 首次构建 C# 时生成；若不存在，先在编辑器里随便建一个 C# 脚本触发生成。）
+(`game.csproj` is generated when Godot first builds C#; if it doesn't exist, create any C# script in the editor to trigger generation.)
 
-- [ ] **Step 2: 写 SimDriver**
+- [ ] **Step 2: Write SimDriver**
 
 `game/scripts/SimDriver.cs`:
 ```csharp
@@ -764,7 +764,7 @@ public partial class SimDriver : Node
 }
 ```
 
-- [ ] **Step 3: 写 Main（程序化灰盒地面 + tick 显示）**
+- [ ] **Step 3: Write Main (procedural gray-box ground + tick display)**
 
 `game/scripts/Main.cs`:
 ```csharp
@@ -781,7 +781,7 @@ public partial class Main : Node3D
         _tickLabel = GetNode<Label>("UI/TickLabel");
         BuildGroundSlab();
         AddSun();
-        // 临时观察相机；Task 7 玩家相机设 Current=true 后自动接管
+        // Temporary observer camera; the player camera in Task 7 sets Current=true and takes over automatically
         AddChild(new Camera3D
         {
             Position = new Vector3(0, 6, 12),
@@ -812,7 +812,7 @@ public partial class Main : Node3D
         };
         body.AddChild(shape);
         body.AddChild(mesh);
-        body.Position = new Vector3(0, -0.5f, 0); // 地表位于 y=0
+        body.Position = new Vector3(0, -0.5f, 0); // ground surface sits at y=0
         AddChild(body);
     }
 
@@ -828,7 +828,7 @@ public partial class Main : Node3D
 }
 ```
 
-- [ ] **Step 4: 组装 Main.tscn**
+- [ ] **Step 4: Assemble Main.tscn**
 
 `game/scenes/Main.tscn`:
 ```
@@ -853,15 +853,15 @@ offset_bottom = 34.0
 text = "tick: 0"
 ```
 
-在 `game/project.godot` 的 `[application]` 节设置主场景（编辑器里 Project Settings → Run → Main Scene 选 `res://scenes/Main.tscn`，或手动加一行）：
+Set the main scene in the `[application]` section of `game/project.godot` (in the editor: Project Settings → Run → Main Scene, pick `res://scenes/Main.tscn`, or add the line manually):
 ```
 run/main_scene="res://scenes/Main.tscn"
 ```
 
-- [ ] **Step 5: 手动验证**
+- [ ] **Step 5: Manual verification**
 
-Run: 在 Godot 编辑器按 F5（或 `<godot.exe路径> --path game`）
-Expected: 灰绿色地面 + 左上角 tick 数字以每秒约 20 的速度递增。同时确认 `dotnet build` 在仓库根仍然成功。
+Run: press F5 in the Godot editor (or `<path-to-godot.exe> --path game`)
+Expected: gray-green ground + a tick counter in the top-left incrementing at roughly 20 per second. Also confirm that `dotnet build` still succeeds at the repo root.
 
 - [ ] **Step 6: Commit**
 
@@ -872,17 +872,17 @@ git commit -m "feat(game): godot project with SimDriver fixed-timestep bridge"
 
 ---
 
-### Task 7: 灰盒第三人称角色控制器
+### Task 7: Gray-Box Third-Person Character Controller
 
 **Files:**
 - Create: `game/scripts/PlayerController.cs`
-- Modify: `game/scripts/Main.cs`（组装玩家）
+- Modify: `game/scripts/Main.cs` (assemble the player)
 
 **Interfaces:**
-- Consumes: 无（独立于仿真）
-- Produces: `PlayerController : CharacterBody3D`，场景树内名为 `Player`；其子节点 `Yaw/SpringArm3D/Camera3D` 是后续 BuildController 取相机的路径。移动：WASD 相对相机朝向，Space 跳跃，鼠标转视角，Esc 释放鼠标。
+- Consumes: none (independent of the simulation)
+- Produces: `PlayerController : CharacterBody3D`, named `Player` in the scene tree; its child node path `Yaw/SpringArm3D/Camera3D` is where the later BuildController fetches the camera. Movement: WASD relative to camera facing, Space to jump, mouse to look, Esc to release the mouse.
 
-- [ ] **Step 1: 写控制器**
+- [ ] **Step 1: Write the controller**
 
 `game/scripts/PlayerController.cs`:
 ```csharp
@@ -931,7 +931,7 @@ public partial class PlayerController : CharacterBody3D
         else if (Input.IsPhysicalKeyPressed(Key.Space))
             velocity.Y = JumpVelocity;
 
-        // 灰盒阶段直接轮询物理键，正式 InputMap 归 M4 打磨
+        // Poll physical keys directly during the gray-box phase; a proper InputMap belongs to M4 polish
         var input = Vector2.Zero;
         if (Input.IsPhysicalKeyPressed(Key.W)) input.Y -= 1;
         if (Input.IsPhysicalKeyPressed(Key.S)) input.Y += 1;
@@ -950,9 +950,9 @@ public partial class PlayerController : CharacterBody3D
 }
 ```
 
-- [ ] **Step 2: 在 Main.cs 里组装玩家**
+- [ ] **Step 2: Assemble the player in Main.cs**
 
-在 `Main._Ready()` 末尾加 `AddChild(BuildPlayer());`，并追加方法：
+At the end of `Main._Ready()` add `AddChild(BuildPlayer());`, and append the method:
 
 ```csharp
     private static PlayerController BuildPlayer()
@@ -982,10 +982,10 @@ public partial class PlayerController : CharacterBody3D
     }
 ```
 
-- [ ] **Step 3: 手动验证**
+- [ ] **Step 3: Manual verification**
 
 Run: F5
-Expected: 橙色胶囊可 WASD 跑动（方向随镜头）、Space 跳跃、鼠标环绕视角且 SpringArm 遇地面不穿插、Esc 切换鼠标捕获。角色不会从地面边缘外掉入虚空时卡死（掉下去属正常，重开即可）。
+Expected: the orange capsule can run with WASD (direction follows the camera), jump with Space, orbit the camera with the mouse with the SpringArm not clipping through the ground, and Esc toggles mouse capture. The character does not get stuck when falling off the edge of the ground into the void (falling off is normal; just restart).
 
 - [ ] **Step 4: Commit**
 
@@ -996,18 +996,18 @@ git commit -m "feat(game): gray-box third-person character controller"
 
 ---
 
-### Task 8: 网格放置交互闭环（幽灵预览 → 指令 → 事件 → 视图）
+### Task 8: Grid Placement Interaction Loop (ghost preview → command → event → view)
 
 **Files:**
 - Create: `game/scripts/BuildController.cs`
-- Modify: `game/scripts/Main.cs`（组装 BuildController）
+- Modify: `game/scripts/Main.cs` (assemble BuildController)
 
 **Interfaces:**
-- Consumes: `SimDriver.Sim`、`SimDriver.SimEventEmitted`、`Simulation.CanPlace`、`PlaceStructureCommand`/`RemoveStructureCommand`、玩家相机 `Player/Yaw/SpringArm3D/Camera3D`
-- Produces: 完整的 M1 建造体验：屏幕中心射线指向地面/方块 → 幽灵方块吸附网格（可放=半透明蓝，不可放=半透明红）→ 左键放置、右键拆除 → 方块视图由仿真事件驱动生成/销毁（`Dictionary<int, MeshInstance3D>` 以 StructureId 为键）
-- **客户端预测缓存（规格 §4）**：维护 `HashSet<GridPos> _pendingCells`——发出放置/拆除指令的瞬间加入（`CanPlaceLocally(cell) = Sim.CanPlace(cell) && !_pendingCells.Contains(cell)`，预览与点击一律用它），收到该格的 `StructurePlaced`/`StructureRemoved`/`CommandRejected` 后移除。封死"60fps 连点 vs 20tps 确认"空窗期的重复指令与幽灵闪烁
+- Consumes: `SimDriver.Sim`, `SimDriver.SimEventEmitted`, `Simulation.CanPlace`, `PlaceStructureCommand`/`RemoveStructureCommand`, the player camera `Player/Yaw/SpringArm3D/Camera3D`
+- Produces: the complete M1 building experience: screen-center ray aimed at ground/blocks → ghost block snapping to the grid (placeable = translucent blue, unplaceable = translucent red) → left click places, right click removes → block views are created/destroyed driven by simulation events (`Dictionary<int, MeshInstance3D>` keyed by StructureId)
+- **Client-side prediction cache (spec §4)**: maintain a `HashSet<GridPos> _pendingCells` — a cell is added the instant a place/remove command is issued (`CanPlaceLocally(cell) = Sim.CanPlace(cell) && !_pendingCells.Contains(cell)`; preview and clicks always use it), and removed after receiving that cell's `StructurePlaced`/`StructureRemoved`/`CommandRejected`. This seals off duplicate commands and ghost flicker during the "60fps click-spam vs 20tps confirmation" window
 
-- [ ] **Step 1: 写 BuildController**
+- [ ] **Step 1: Write BuildController**
 
 `game/scripts/BuildController.cs`:
 ```csharp
@@ -1086,7 +1086,7 @@ public partial class BuildController : Node3D
 
         var hitPos = (Vector3)hit["position"];
         var normal = (Vector3)hit["normal"];
-        // 命中面向外偏移半格取放置格，向内偏移半格取被指向的已有格
+        // Offset half a cell outward from the hit face to get the placement cell; half a cell inward to get the aimed existing cell
         _aimedCell = ToCell(hitPos + normal * 0.5f);
         var inner = ToCell(hitPos - normal * 0.5f);
         _aimedExistingCell = _driver.Sim.CanPlace(inner) ? null : inner;
@@ -1143,32 +1143,32 @@ public partial class BuildController : Node3D
 }
 ```
 
-- [ ] **Step 2: 组装 + 准星**
+- [ ] **Step 2: Assembly + crosshair**
 
-`Main._Ready()` 末尾追加：
+Append at the end of `Main._Ready()`:
 ```csharp
         AddChild(new BuildController { Name = "BuildController" });
         var crosshair = new Label { Text = "+" };
         crosshair.SetAnchorsPreset(Control.LayoutPreset.Center);
         GetNode<CanvasLayer>("UI").AddChild(crosshair);
 ```
-注意：`BuildController` 的 `_Ready` 依赖 `Player` 与 `SimDriver` 已在树上——`AddChild(BuildController)` 必须放在 `BuildPlayer()` 组装之后（保持在 `_Ready` 末尾即可）。
+Note: `BuildController`'s `_Ready` depends on `Player` and `SimDriver` already being in the tree — the `AddChild(BuildController)` call must come after the `BuildPlayer()` assembly (keeping it at the end of `_Ready` suffices).
 
-- [ ] **Step 3: 手动验证**
+- [ ] **Step 3: Manual verification**
 
 Run: F5
 Expected:
-1. 准星指向地面出现半透明蓝色幽灵方块，吸附整数网格
-2. 左键放置：出现深色发光蓝边方块；对已占格幽灵变红且左键无效
-3. 方块可堆叠（指向已有方块的顶面/侧面时幽灵出现在相邻格）
-4. 右键指向已有方块将其拆除
-5. 角色可以跳上放置的方块（有碰撞）
-6. 左上角 tick 持续递增，放置/拆除不掉帧
+1. Aiming the crosshair at the ground shows a translucent blue ghost block, snapped to the integer grid
+2. Left click places: a dark, blue-glow-edged block appears; on an occupied cell the ghost turns red and left click has no effect
+3. Blocks are stackable (aiming at the top/side face of an existing block puts the ghost in the adjacent cell)
+4. Right-clicking an existing block removes it
+5. The character can jump onto placed blocks (they have collision)
+6. The tick counter in the top-left keeps incrementing; placing/removing does not drop frames
 
-- [ ] **Step 4: 回归确认**
+- [ ] **Step 4: Regression check**
 
 Run: `dotnet test`
-Expected: 全部 PASS（表现层改动不破坏 SimCore）
+Expected: all PASS (presentation-layer changes do not break SimCore)
 
 - [ ] **Step 5: Commit**
 
@@ -1179,16 +1179,16 @@ git commit -m "feat(game): grid placement loop - ghost preview, commands, event-
 
 ---
 
-## 月末完成定义
+## End-of-month definition of done
 
-- `dotnet test` 全绿（≥11 个测试）
-- 游戏可运行：角色在灰盒地面行走跳跃，放置/拆除发光方块，全程经由 SimCore 指令-事件流
-- AGENTS.md / CREDITS.md / backlog.md 就位
-- 每个任务一个 commit，主线始终可构建
+- `dotnet test` fully green (≥11 tests)
+- The game runs: the character walks and jumps on gray-box ground, places/removes glowing blocks, all going through the SimCore command-event flow end to end
+- AGENTS.md / CREDITS.md / backlog.md in place
+- One commit per task; mainline always builds
 
-## 明确不做（本月）
+## Explicitly out of scope (this month)
 
-- Mixamo/正式角色模型（第 2 个月）
-- 回路、能量、魔像、多方块拼装（M2/M3）
-- InputMap 配置、手感打磨、任何 shader/素材引入（M4）
-- 存档写盘 UI（本月只有内存内快照往返；写文件是 M5 的事）
+- Mixamo/final character model (month 2)
+- Circuits, energy, golems, multi-block assembly (M2/M3)
+- InputMap configuration, feel polish, any shader/asset introduction (M4)
+- Save-to-disk UI (this month only has in-memory snapshot round-trips; writing files is an M5 matter)

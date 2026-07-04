@@ -1,65 +1,65 @@
-# 第 2 个月：M1 收尾 + M2 前半——正式角色与回路数据模型/编译器 实现计划
+# Month 2: M1 Wrap-up + First Half of M2 — Proper Character and Circuit Data Model/Compiler Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> **开工前校准（必读）**：本计划提前撰写。开工第一步：对照仓库实际代码核对本计划全部 Interfaces 与文件路径（尤其第 1 个月产出的 `Simulation`/`SimDriver`/`BuildController` 签名），有漂移先修订本计划再动工。月度目标与验收标准不可降级。
+> **Pre-start calibration (required reading)**: This plan was written in advance. First step before starting work: check every Interface and file path in this plan against the actual code in the repository (especially the `Simulation`/`SimDriver`/`BuildController` signatures produced in Month 1); if anything has drifted, revise this plan first before starting work. The monthly goals and acceptance criteria must not be downgraded.
 
-**Goal:** 用带动画的正式角色替换灰盒胶囊；在 SimCore 中建立回路图数据模型、节点目录与编译器（校验 + 扁平指令数组产出），全部测试驱动、不含任何 UI。
+**Goal:** Replace the gray-box capsule with a proper animated character; build the circuit graph data model, node catalog, and compiler (validation + flat instruction array output) in SimCore, all test-driven and containing no UI whatsoever.
 
-**Architecture:** 回路系统按设计文档的三层切分：纯数据的图描述（`CircuitGraphData`，编辑器与仿真的唯一交换格式）→ 编译器（校验并产出 `CompiledCircuit` 指令数组）→ VM（第 3 个月）。本月只做前两层，编译器可完全脱离 Godot 测试。角色替换是纯表现层工作，不触碰 SimCore。
+**Architecture:** The circuit system is split into three layers per the design doc: a pure-data graph description (`CircuitGraphData`, the sole interchange format between editor and simulation) → compiler (validates and produces the `CompiledCircuit` instruction array) → VM (Month 3). This month covers only the first two layers; the compiler can be tested entirely outside Godot. The character replacement is pure presentation-layer work and does not touch SimCore.
 
-**Tech Stack:** 同第 1 个月；新增素材来源 KayKit/Mixamo（角色与动画）
+**Tech Stack:** Same as Month 1; new asset sources: KayKit/Mixamo (character and animations)
 
-**规格来源:** `docs/superpowers/specs/2026-07-03-magic-automation-game-design.md` §5（回路执行模型）、§6（角色素材）
+**Spec source:** `docs/superpowers/specs/2026-07-03-magic-automation-game-design.md` §5 (circuit execution model), §6 (character assets)
 
 ## Global Constraints
 
-- SimCore 禁止 `using Godot`；子系统间只通过事件或纯数据交互
-- 指令只在 tick 边界消费；表现层不写仿真状态；Tick 热路径零分配
-- 存档状态只含平凡值；运行中的回路指令流只读
-- commit 信息不写 Co-Authored-By；素材只收 CC0/明确可商用并记入 CREDITS.md
-- 编译器不在热路径（仅刻录时调用），允许分配与 LINQ
+- SimCore forbids `using Godot`; subsystems interact only through events or pure data
+- Commands are consumed only at tick boundaries; the presentation layer never writes simulation state; the tick hot path is zero-allocation
+- Save state contains only trivial values; a running circuit's instruction stream is read-only
+- Commit messages must not include Co-Authored-By; only accept CC0 / explicitly commercially usable assets and record them in CREDITS.md
+- The compiler is not on the hot path (invoked only at inscribe time), so allocations and LINQ are allowed
 
-## 文件结构（本月新建）
+## File Structure (new this month)
 
 ```
-SimCore/Circuits/PortDef.cs            端口/类型定义
-SimCore/Circuits/NodeDef.cs            节点定义
-SimCore/Circuits/NodeCatalog.cs        MVP 节点目录（数据表）
-SimCore/Circuits/CircuitGraphData.cs   图描述（纯数据，编辑器⇄仿真交换格式）
-SimCore/Circuits/Instruction.cs        指令与 OpCode
-SimCore/Circuits/CompiledCircuit.cs    编译产物
-SimCore/Circuits/CompileError.cs       错误（带节点定位）
-SimCore/Circuits/CircuitCompiler.cs    编译器
+SimCore/Circuits/PortDef.cs            Port/type definitions
+SimCore/Circuits/NodeDef.cs            Node definition
+SimCore/Circuits/NodeCatalog.cs        MVP node catalog (data table)
+SimCore/Circuits/CircuitGraphData.cs   Graph description (pure data, editor⇄simulation interchange format)
+SimCore/Circuits/Instruction.cs        Instructions and OpCode
+SimCore/Circuits/CompiledCircuit.cs    Compilation output
+SimCore/Circuits/CompileError.cs       Errors (with node location)
+SimCore/Circuits/CircuitCompiler.cs    Compiler
 SimCore.Tests/Circuits/NodeCatalogTests.cs
 SimCore.Tests/Circuits/CompilerValidationTests.cs
 SimCore.Tests/Circuits/CompilerCodegenTests.cs
-game/assets/characters/...             角色模型与动画（Task 1）
-game/scenes/Player.tscn                角色升级为场景文件
-game/scripts/PlayerAnimator.cs         动画状态驱动
+game/assets/characters/...             Character model and animations (Task 1)
+game/scenes/Player.tscn                Character promoted to a scene file
+game/scripts/PlayerAnimator.cs         Animation state driver
 ```
 
 ---
 
-### Task 1: 正式角色替换灰盒胶囊
+### Task 1: Replace the Gray-box Capsule with the Proper Character
 
 **Files:**
-- Create: `game/assets/characters/`（模型+动画文件）、`game/scenes/Player.tscn`、`game/scripts/PlayerAnimator.cs`
-- Modify: `game/scripts/Main.cs`（改为实例化 Player.tscn）、`game/scripts/PlayerController.cs`（暴露移动状态）、`CREDITS.md`
+- Create: `game/assets/characters/` (model + animation files), `game/scenes/Player.tscn`, `game/scripts/PlayerAnimator.cs`
+- Modify: `game/scripts/Main.cs` (change to instantiating Player.tscn), `game/scripts/PlayerController.cs` (expose movement state), `CREDITS.md`
 
 **Interfaces:**
-- Consumes: `PlayerController`（第 1 个月）
-- Produces: `PlayerController` 新增只读属性 `public bool IsMoving => ...`、`public bool IsAirborne => !IsOnFloor();`；`PlayerAnimator : Node` 读这两个属性切换 idle/run/jump 动画
+- Consumes: `PlayerController` (Month 1)
+- Produces: `PlayerController` gains read-only properties `public bool IsMoving => ...` and `public bool IsAirborne => !IsOnFloor();`; `PlayerAnimator : Node` reads these two properties to switch between idle/run/jump animations
 
-- [ ] **Step 1: 获取角色素材**
+- [ ] **Step 1: Acquire character assets**
 
-首选 KayKit Adventurers（itch.io，CC0，自带 idle/run/jump 动画，GLB 格式）。备选：任意人形 GLB + Mixamo 动画重定向（Mixamo 需 Adobe 账号，导出 FBX→Blender 转 GLB）。将 GLB 放入 `game/assets/characters/`，在 `CREDITS.md` 记一行（素材名/来源/许可/用途）。
+First choice: KayKit Adventurers (itch.io, CC0, ships with idle/run/jump animations, GLB format). Fallback: any humanoid GLB + Mixamo animation retargeting (Mixamo requires an Adobe account; export FBX → convert to GLB in Blender). Place the GLB in `game/assets/characters/` and add one line to `CREDITS.md` (asset name / source / license / usage).
 
-- [ ] **Step 2: 组装 Player.tscn**
+- [ ] **Step 2: Assemble Player.tscn**
 
-在 Godot 编辑器中把第 1 个月代码构造的玩家结构固化为场景：根 `CharacterBody3D`（挂 PlayerController.cs）→ `CollisionShape3D`(胶囊) + 角色模型实例（替换 MeshInstance3D 胶囊）+ `Yaw/SpringArm3D/Camera3D` + `AnimationPlayer`（GLB 自带）+ `PlayerAnimator` 节点。`Main.cs` 删除 `BuildPlayer()`，改为 `AddChild(GD.Load<PackedScene>("res://scenes/Player.tscn").Instantiate());`（保持节点名 `Player` 不变，BuildController 的路径依赖不破）。
+In the Godot editor, solidify the player structure that Month 1 built in code into a scene: root `CharacterBody3D` (with PlayerController.cs attached) → `CollisionShape3D` (capsule) + character model instance (replacing the MeshInstance3D capsule) + `Yaw/SpringArm3D/Camera3D` + `AnimationPlayer` (bundled with the GLB) + `PlayerAnimator` node. `Main.cs` deletes `BuildPlayer()` and instead does `AddChild(GD.Load<PackedScene>("res://scenes/Player.tscn").Instantiate());` (keep the node name `Player` unchanged so BuildController's path dependency does not break).
 
-- [ ] **Step 3: 写 PlayerAnimator**
+- [ ] **Step 3: Write PlayerAnimator**
 
 ```csharp
 using Godot;
@@ -88,20 +88,20 @@ public partial class PlayerAnimator : Node
 }
 ```
 
-动画名以素材实际导出名为准（校准点：打开 AnimationPlayer 查看动画列表并改代码中的字符串）。`PlayerController` 增加：
+Animation names must match the actual exported names in the asset (calibration point: open the AnimationPlayer, inspect the animation list, and update the strings in the code). Add to `PlayerController`:
 
 ```csharp
     public bool IsMoving { get; private set; }
     public bool IsAirborne => !IsOnFloor();
-    // _PhysicsProcess 末尾：IsMoving = dir != Vector3.Zero;
+    // At the end of _PhysicsProcess: IsMoving = dir != Vector3.Zero;
 ```
 
-模型朝向：`_PhysicsProcess` 中当 `dir != Vector3.Zero` 时对模型节点做 `LookAt` 平滑转向（只转模型子节点，不转整个 Body，避免影响相机 Yaw）。
+Model facing: in `_PhysicsProcess`, when `dir != Vector3.Zero`, apply a smoothed `LookAt` turn to the model node (rotate only the model child node, not the whole Body, to avoid affecting the camera Yaw).
 
-- [ ] **Step 4: 手动验证**
+- [ ] **Step 4: Manual verification**
 
 Run: F5
-Expected: 角色待机/跑动/跳跃动画正确切换且有 0.15s 混合；移动时模型朝移动方向转身；相机、建造交互一切照旧。
+Expected: character idle/run/jump animations switch correctly with 0.15s blending; the model turns to face the movement direction while moving; camera and build interactions all work exactly as before.
 
 - [ ] **Step 5: Commit**
 
@@ -112,29 +112,29 @@ git commit -m "feat(game): animated character replaces gray-box capsule"
 
 ---
 
-### Task 2: 回路类型系统与节点目录
+### Task 2: Circuit Type System and Node Catalog
 
 **Files:**
 - Create: `SimCore/Circuits/PortDef.cs`, `SimCore/Circuits/NodeDef.cs`, `SimCore/Circuits/NodeCatalog.cs`
 - Test: `SimCore.Tests/Circuits/NodeCatalogTests.cs`
 
 **Interfaces:**
-- Produces（后续所有回路任务与第 3 个月的编辑器都依赖，签名在此锁死）:
+- Produces (every subsequent circuit task and the Month 3 editor depend on these; signatures are locked down here):
 
 ```csharp
 namespace SimCore.Circuits;
 
 public enum PortKind { Exec, Data }
-public enum DataType { None, Number, Bool, Vector }   // Vector=三维坐标；Exec 端口用 None
+public enum DataType { None, Number, Bool, Vector }   // Vector = 3D coordinate; Exec ports use None
 
 public sealed record PortDef(string Name, PortKind Kind, DataType Type, bool Required);
 
 public sealed record NodeDef(
-    string TypeId,                       // 稳定标识，如 "event_start"
-    string DisplayName,                  // 编辑器显示名（中文）
+    string TypeId,                       // stable identifier, e.g. "event_start"
+    string DisplayName,                  // editor display name (player-facing localized string; Chinese)
     IReadOnlyList<PortDef> Inputs,
     IReadOnlyList<PortDef> Outputs,
-    bool IsEvent);                       // 事件节点=执行入口，无 Exec 输入
+    bool IsEvent);                       // event node = execution entry point, no Exec input
 
 public static class NodeCatalog
 {
@@ -142,7 +142,7 @@ public static class NodeCatalog
 }
 ```
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
 ```csharp
 using SimCore.Circuits;
@@ -153,16 +153,16 @@ namespace SimCore.Tests.Circuits;
 public class NodeCatalogTests
 {
     [Theory]
-    [InlineData("event_start")]      // 启动时
-    [InlineData("action_move_to")]   // 移动到
-    [InlineData("action_harvest")]   // 采集
-    [InlineData("action_load")]      // 装载
-    [InlineData("action_unload")]    // 卸载
-    [InlineData("flow_branch")]      // 条件分支
-    [InlineData("action_wait")]      // 等待
-    [InlineData("data_const_number")]// 常量
-    [InlineData("data_compare")]     // 比较
-    [InlineData("sensor_cargo")]     // 读自身载货量
+    [InlineData("event_start")]      // On Start
+    [InlineData("action_move_to")]   // Move To
+    [InlineData("action_harvest")]   // Harvest
+    [InlineData("action_load")]      // Load
+    [InlineData("action_unload")]    // Unload
+    [InlineData("flow_branch")]      // Conditional branch
+    [InlineData("action_wait")]      // Wait
+    [InlineData("data_const_number")]// Constant
+    [InlineData("data_compare")]     // Compare
+    [InlineData("sensor_cargo")]     // Read own cargo count
     public void Catalog_ContainsMvpNodes(string typeId)
         => Assert.True(NodeCatalog.All.ContainsKey(typeId));
 
@@ -185,38 +185,38 @@ public class NodeCatalogTests
 }
 ```
 
-- [ ] **Step 2: 跑测试确认失败**（编译错误）
+- [ ] **Step 2: Run tests, confirm they fail** (compile errors)
 
-- [ ] **Step 3: 实现节点目录**
+- [ ] **Step 3: Implement the node catalog**
 
-本月 10 个节点的完整端口定义（第 3 个月按需补至 15）：
+Complete port definitions for this month's 10 nodes (Month 3 expands to 15 as needed):
 
-| TypeId | Exec入 | Exec出 | Data入 | Data出 |
+| TypeId | Exec in | Exec out | Data in | Data out |
 |---|---|---|---|---|
-| event_start | 无 | out | 无 | 无 |
-| action_move_to | in | out | target:Vector(必填) | 无 |
-| action_harvest | in | out | target:Vector(必填) | 无 |
-| action_load | in | out | 无 | 无 |
-| action_unload | in | out | 无 | 无 |
-| action_wait | in | out | ticks:Number(必填) | 无 |
-| flow_branch | in | true,false | condition:Bool(必填) | 无 |
-| data_const_number | 无 | 无 | 无(内联参数value) | value:Number |
-| data_compare | 无 | 无 | a:Number(必), b:Number(必) | result:Bool |
-| sensor_cargo | 无 | 无 | 无 | count:Number |
+| event_start | none | out | none | none |
+| action_move_to | in | out | target:Vector (required) | none |
+| action_harvest | in | out | target:Vector (required) | none |
+| action_load | in | out | none | none |
+| action_unload | in | out | none | none |
+| action_wait | in | out | ticks:Number (required) | none |
+| flow_branch | in | true,false | condition:Bool (required) | none |
+| data_const_number | none | none | none (inline param value) | value:Number |
+| data_compare | none | none | a:Number (required), b:Number (required) | result:Bool |
+| sensor_cargo | none | none | none | count:Number |
 
-实现为 `NodeCatalog` 静态构造中的字典初始化，每个 `NodeDef` 按表填写。`event_start` 的执行出口统一命名 `"out"`，普通动作节点 Exec 入口名 `"in"`。
+Implement as a dictionary initialization in the `NodeCatalog` static constructor, filling in each `NodeDef` per the table. The execution output of `event_start` is uniformly named `"out"`; regular action nodes' Exec input is named `"in"`.
 
-- [ ] **Step 4: 跑测试确认通过** → **Step 5: Commit** `feat(circuits): port type system and mvp node catalog`
+- [ ] **Step 4: Run tests, confirm they pass** → **Step 5: Commit** `feat(circuits): port type system and mvp node catalog`
 
 ---
 
-### Task 3: 图描述数据结构（编辑器⇄仿真交换格式）
+### Task 3: Graph Description Data Structure (editor⇄simulation interchange format)
 
 **Files:**
 - Create: `SimCore/Circuits/CircuitGraphData.cs`
 
 **Interfaces:**
-- Produces（第 3 个月 GraphEdit 序列化的目标格式，全平凡值可 JSON 化）:
+- Produces (the target format for Month 3 GraphEdit serialization; all trivial values, JSON-serializable):
 
 ```csharp
 namespace SimCore.Circuits;
@@ -231,8 +231,8 @@ public sealed class CircuitNodeData
 {
     public int NodeId { get; set; }
     public string TypeId { get; set; } = "";
-    public Dictionary<string, double> InlineParams { get; set; } = new(); // 如常量节点的 value
-    public float EditorX { get; set; }   // 仅编辑器布局，编译器忽略
+    public Dictionary<string, double> InlineParams { get; set; } = new(); // e.g. a constant node's value
+    public float EditorX { get; set; }   // editor layout only, ignored by the compiler
     public float EditorY { get; set; }
 }
 
@@ -245,15 +245,15 @@ public sealed class CircuitConnectionData
 }
 ```
 
-- [ ] **Step 1: 写类型 + JSON 往返小测试**（放入 `CompilerValidationTests.cs` 顶部或独立文件：构造一个两节点图，`JsonSerializer` 序列化→反序列化→节点数与连线相等）
-- [ ] **Step 2: 跑测试通过** → **Step 3: Commit** `feat(circuits): graph data interchange format`
+- [ ] **Step 1: Write the types + a small JSON round-trip test** (place at the top of `CompilerValidationTests.cs` or in a standalone file: construct a two-node graph, `JsonSerializer` serialize → deserialize → node count and connections are equal)
+- [ ] **Step 2: Run tests, they pass** → **Step 3: Commit** `feat(circuits): graph data interchange format`
 
 ---
 
-### Task 4: 编译器——校验层
+### Task 4: Compiler — Validation Layer
 
 **Files:**
-- Create: `SimCore/Circuits/CompileError.cs`, `SimCore/Circuits/CircuitCompiler.cs`（本任务只做校验，产出留 Task 5）
+- Create: `SimCore/Circuits/CompileError.cs`, `SimCore/Circuits/CircuitCompiler.cs` (this task covers validation only; output is left for Task 5)
 - Test: `SimCore.Tests/Circuits/CompilerValidationTests.cs`
 
 **Interfaces:**
@@ -264,7 +264,7 @@ public sealed record CompileError(int NodeId, string Code, string Message);
 
 public sealed class CompileResult
 {
-    public CompiledCircuit? Circuit { get; init; }          // 校验失败为 null
+    public CompiledCircuit? Circuit { get; init; }          // null when validation fails
     public List<CompileError> Errors { get; init; } = new();
     public bool Success => Errors.Count == 0;
 }
@@ -275,9 +275,9 @@ public static class CircuitCompiler
 }
 ```
 
-- 错误码全集（编辑器据此标红，第 3 个月消费）：`unknown_node_type`、`no_event_node`、`type_mismatch`、`required_input_missing`、`exec_input_from_data`（Exec/Data 混接）、`multi_exec_out`（同一 Exec 出口连了多条）、`multi_data_in`（同一 Data 入口有多个来源）、`data_cycle`（数据线成环）、`unreachable_node`
+- The full set of error codes (the editor highlights errors in red based on these; consumed in Month 3): `unknown_node_type`, `no_event_node`, `type_mismatch`, `required_input_missing`, `exec_input_from_data` (Exec/Data cross-wiring), `multi_exec_out` (multiple lines connected to the same Exec output), `multi_data_in` (multiple sources into the same Data input), `data_cycle` (data lines form a cycle), `unreachable_node`
 
-- [ ] **Step 1: 写失败测试**（每个错误码至少一个用例；关键用例如下，其余按同构写全）
+- [ ] **Step 1: Write failing tests** (at least one test case per error code; the key cases are below, write the rest following the same shape)
 
 ```csharp
 using SimCore.Circuits;
@@ -310,7 +310,7 @@ public class CompilerValidationTests
         var g = Graph(Node(1, "event_start"), Node(2, "flow_branch"),
                       Node(3, "data_const_number"));
         Connect(g, 1, "out", 2, "in");
-        Connect(g, 3, "value", 2, "condition");   // Number → Bool 入口
+        Connect(g, 3, "value", 2, "condition");   // Number → Bool input
         var result = CircuitCompiler.Compile(g);
         var err = Assert.Single(result.Errors, e => e.Code == "type_mismatch");
         Assert.Equal(2, err.NodeId);
@@ -320,7 +320,7 @@ public class CompilerValidationTests
     public void RequiredInput_Unconnected_IsRejected()
     {
         var g = Graph(Node(1, "event_start"), Node(2, "action_move_to"));
-        Connect(g, 1, "out", 2, "in");            // target:Vector 未接
+        Connect(g, 1, "out", 2, "in");            // target:Vector not connected
         var result = CircuitCompiler.Compile(g);
         Assert.Contains(result.Errors, e => e is { Code: "required_input_missing", NodeId: 2 });
     }
@@ -328,11 +328,13 @@ public class CompilerValidationTests
     [Fact]
     public void DataCycle_IsRejected()
     {
-        // 两个 compare 节点互相喂结果（Bool 出口接 Number 入口本身也是 type_mismatch，
-        // 因此本用例用两个假想 Number 直连成环：compare.a <- compare2.?? 不可行——
-        // 用 data_compare 无 Number 输出，MVP 节点里数据环需借助后续算术节点；
-        // 本月先用目录外的测试专用节点 "test_passthrough"（Number入value/Number出value）构环。
-        // NodeCatalog 中加入该节点并标注 internal test only。
+        // Two compare nodes feeding each other's results (a Bool output into a Number input
+        // would itself be a type_mismatch, so this case would need two hypothetical Numbers
+        // wired directly into a cycle: compare.a <- compare2.?? is not feasible —
+        // data_compare has no Number output; a data cycle within the MVP node set would
+        // require the arithmetic nodes coming later. This month, build the cycle using a
+        // test-only node outside the catalog, "test_passthrough" (Number in value /
+        // Number out value). Add this node to NodeCatalog and mark it internal test only.
         var g = Graph(Node(1, "event_start"), Node(2, "test_passthrough"),
                       Node(3, "test_passthrough"));
         Connect(g, 2, "value", 3, "value");
@@ -344,7 +346,7 @@ public class CompilerValidationTests
     [Fact]
     public void MinimalValidProgram_Compiles()
     {
-        // 启动时 → 等待(常量10 tick)
+        // On Start → wait (constant 10 ticks)
         var wait = Node(2, "action_wait");
         var g = Graph(Node(1, "event_start"), wait, Node(3, "data_const_number"));
         g.Nodes[2].InlineParams["value"] = 10;
@@ -357,28 +359,28 @@ public class CompilerValidationTests
 }
 ```
 
-其余错误码（`unknown_node_type`、`exec_input_from_data`、`multi_exec_out`、`multi_data_in`、`unreachable_node`）各写一个同构造型的用例。
+For the remaining error codes (`unknown_node_type`, `exec_input_from_data`, `multi_exec_out`, `multi_data_in`, `unreachable_node`), write one test case each with the same construction shape.
 
-- [ ] **Step 2: 跑测试确认失败**（编译错误）
+- [ ] **Step 2: Run tests, confirm they fail** (compile errors)
 
-- [ ] **Step 3: 实现校验**
+- [ ] **Step 3: Implement validation**
 
-`CircuitCompiler.Compile` 校验顺序（收集所有错误再返回，不首错即停）：
-1. 每个节点的 TypeId 在 `NodeCatalog.All` 中 → 否则 `unknown_node_type`
-2. 至少一个 `IsEvent` 节点 → 否则 `no_event_node`
-3. 每条连线：两端端口存在；Kind 相同（`exec_input_from_data`）；Data 线两端 `DataType` 相等（`type_mismatch`，错误定位到 To 端节点）
-4. 每个 Exec 出口出边 ≤1（`multi_exec_out`）；每个 Data 入口入边 ≤1（`multi_data_in`）
-5. Required 的 Data 入口必须有入边，或节点 `InlineParams` 里有同名参数（`required_input_missing`）
-6. 数据线子图做 Kahn 拓扑排序，排不完 → 剩余节点各报 `data_cycle`
-7. 从每个事件节点沿 Exec 出边 BFS，未覆盖且非纯数据供给者（其数据输出未被任何可达节点消费）的节点 → `unreachable_node`
+`CircuitCompiler.Compile` validation order (collect all errors then return; do not stop at the first error):
+1. Every node's TypeId exists in `NodeCatalog.All` → otherwise `unknown_node_type`
+2. At least one `IsEvent` node → otherwise `no_event_node`
+3. Every connection: both endpoint ports exist; Kind is the same (`exec_input_from_data`); both ends of a Data line have equal `DataType` (`type_mismatch`, error located at the To-end node)
+4. Every Exec output has ≤1 outgoing edge (`multi_exec_out`); every Data input has ≤1 incoming edge (`multi_data_in`)
+5. Every Required Data input must have an incoming edge, or the node's `InlineParams` must contain a parameter of the same name (`required_input_missing`)
+6. Run Kahn topological sort on the data-line subgraph; if it cannot complete → each remaining node reports `data_cycle`
+7. BFS from every event node along Exec output edges; any node not covered and that is not a pure data supplier (i.e. its data outputs are not consumed by any reachable node) → `unreachable_node`
 
-`test_passthrough` 节点加入目录（DisplayName 标注"测试专用"，第 3 个月编辑器的节点面板过滤掉它）。校验全过时先返回 `Circuit = new CompiledCircuit()` 空壳（Task 5 填真产物），让本任务测试可独立通过。
+Add the `test_passthrough` node to the catalog (its DisplayName annotated as "test only"; the Month 3 editor's node palette filters it out). When validation fully passes, return `Circuit = new CompiledCircuit()` as an empty shell for now (Task 5 fills in the real output), so this task's tests can pass independently.
 
-- [ ] **Step 4: 跑测试确认通过** → **Step 5: Commit** `feat(circuits): compiler validation with located error codes`
+- [ ] **Step 4: Run tests, confirm they pass** → **Step 5: Commit** `feat(circuits): compiler validation with located error codes`
 
 ---
 
-### Task 5: 编译器——指令产出
+### Task 5: Compiler — Instruction Output
 
 **Files:**
 - Create: `SimCore/Circuits/Instruction.cs`, `SimCore/Circuits/CompiledCircuit.cs`
@@ -386,22 +388,22 @@ public class CompilerValidationTests
 - Test: `SimCore.Tests/Circuits/CompilerCodegenTests.cs`
 
 **Interfaces:**
-- Produces（第 3 个月 VM 的执行格式，锁死）:
+- Produces (the execution format for the Month 3 VM; locked down):
 
 ```csharp
 public enum OpCode : byte
 {
     Halt = 0,
-    Jump,          // A=目标指令下标
-    JumpIfFalse,   // A=寄存器下标(条件), B=目标下标
-    LoadConst,     // A=目标寄存器, Imm=值
-    Compare,       // A=左寄存器, B=右寄存器, C=目标寄存器(Bool), Imm=比较模式(0:> 1:= 2:<)
-    ReadSensor,    // A=传感器id(0=cargo), C=目标寄存器
-    MoveTo,        // A=x寄存器, B=y寄存器(暂0), C=z寄存器 —— 可挂起
-    Harvest,       // 同上取目标 —— 可挂起
-    Load,          // 可挂起
-    Unload,        // 可挂起
-    Wait,          // A=tick数寄存器 —— 可挂起
+    Jump,          // A = target instruction index
+    JumpIfFalse,   // A = register index (condition), B = target index
+    LoadConst,     // A = target register, Imm = value
+    Compare,       // A = left register, B = right register, C = target register (Bool), Imm = compare mode (0:> 1:= 2:<)
+    ReadSensor,    // A = sensor id (0=cargo), C = target register
+    MoveTo,        // A = x register, B = y register (0 for now), C = z register — suspendable
+    Harvest,       // takes its target the same way as above — suspendable
+    Load,          // suspendable
+    Unload,        // suspendable
+    Wait,          // A = tick-count register — suspendable
 }
 
 public readonly record struct Instruction(OpCode Op, int A, int B, int C, double Imm);
@@ -410,34 +412,34 @@ public sealed class CompiledCircuit
 {
     public Instruction[] Instructions { get; init; } = Array.Empty<Instruction>();
     public int RegisterCount { get; init; }
-    public int StartEntry { get; init; } = -1;   // event_start 的入口下标，无则 -1
+    public int StartEntry { get; init; } = -1;   // entry index of event_start, -1 if absent
 }
 ```
 
-- 代码生成规则：数据节点按拓扑序求值进寄存器（每个数据输出端口分配一个寄存器）；Exec 链按深度优先线性化；`flow_branch` 生成 `JumpIfFalse`+两分支+汇合 `Jump`；`event_start` 程序体末尾生成 `Jump` 回入口（**程序天然循环**，规格 §5）；Vector 参数经三个 Number 寄存器传递（MVP 简化：`action_move_to` 的 target 由 `data_const_number` x3 或内联参数提供——本月内联参数形态为 `InlineParams["target_x"]` 等，第 3 个月编辑器提供坐标拾取）
+- Code generation rules: data nodes are evaluated into registers in topological order (each data output port gets one register); the Exec chain is linearized depth-first; `flow_branch` generates `JumpIfFalse` + two branch arms + a convergence `Jump`; at the end of the `event_start` program body, generate a `Jump` back to the entry (**the program loops by nature**, spec §5); Vector parameters are passed via three Number registers (MVP simplification: `action_move_to`'s target is supplied by three `data_const_number` nodes or by inline parameters — this month the inline-parameter form is `InlineParams["target_x"]` etc.; the Month 3 editor provides coordinate picking)
 
-- [ ] **Step 1: 写失败测试**
+- [ ] **Step 1: Write failing tests**
 
 ```csharp
 public class CompilerCodegenTests
 {
-    // 复用 ValidationTests 的 Graph/Node/Connect 辅助（抽到共享静态类 GraphBuilder）
+    // Reuse ValidationTests' Graph/Node/Connect helpers (extract into a shared static class GraphBuilder)
 
     [Fact]
     public void StartWait_LoopsBackToEntry()
     {
-        var circuit = CompileMinimalStartWait();   // 上一任务的最小合法程序
+        var circuit = CompileMinimalStartWait();   // the previous task's minimal valid program
         Assert.NotEqual(-1, circuit.StartEntry);
         Assert.Equal(OpCode.Jump, circuit.Instructions[^1].Op);
-        Assert.Equal(circuit.StartEntry, circuit.Instructions[^1].A); // 尾部跳回入口
+        Assert.Equal(circuit.StartEntry, circuit.Instructions[^1].A); // tail jumps back to the entry
         Assert.Contains(circuit.Instructions, i => i.Op == OpCode.Wait);
     }
 
     [Fact]
     public void Branch_GeneratesJumpIfFalse_WithBothArmsReachable()
     {
-        // 启动时 → branch(condition = compare(cargo, const 5))
-        //   true → wait(1)  false → wait(2) → 汇合 → 循环
+        // On Start → branch(condition = compare(cargo, const 5))
+        //   true → wait(1)  false → wait(2) → converge → loop
         var circuit = CompileBranchProgram();
         Assert.Contains(circuit.Instructions, i => i.Op == OpCode.JumpIfFalse);
         Assert.Contains(circuit.Instructions, i => i.Op == OpCode.Compare);
@@ -445,7 +447,7 @@ public class CompilerCodegenTests
     }
 
     [Fact]
-    public void SameGraph_CompilesToIdenticalInstructions()   // 编译确定性
+    public void SameGraph_CompilesToIdenticalInstructions()   // compilation determinism
     {
         var a = CompileBranchProgram();
         var b = CompileBranchProgram();
@@ -463,31 +465,31 @@ public class CompilerCodegenTests
 }
 ```
 
-`CompileMinimalStartWait`/`CompileBranchProgram` 为测试内静态辅助，用 GraphBuilder 构图后 `CircuitCompiler.Compile(...).Circuit!` 返回。
+`CompileMinimalStartWait`/`CompileBranchProgram` are static helpers inside the tests; they build the graph with GraphBuilder and return `CircuitCompiler.Compile(...).Circuit!`.
 
-- [ ] **Step 2: 跑测试确认失败** → **Step 3: 实现代码生成**（按上述规则；寄存器分配 = 数据输出端口序号递增；分支求值策略 MVP 简化为"进入 Exec 节点前，重新求值其数据依赖闭包"——即每次执行到 branch 前重算 compare/sensor，保证读到最新传感值）
+- [ ] **Step 2: Run tests, confirm they fail** → **Step 3: Implement code generation** (per the rules above; register allocation = incrementing sequence numbers over data output ports; the branch evaluation strategy is MVP-simplified to "before entering an Exec node, re-evaluate its data dependency closure" — i.e. every time execution reaches the branch, recompute compare/sensor, guaranteeing the freshest sensor values are read)
 
-- [ ] **Step 4: 跑测试确认通过**（`dotnet test` 全绿）→ **Step 5: Commit** `feat(circuits): compile graphs to flat jump-threaded instruction arrays`
+- [ ] **Step 4: Run tests, confirm they pass** (`dotnet test` all green) → **Step 5: Commit** `feat(circuits): compile graphs to flat jump-threaded instruction arrays`
 
 ---
 
-### Task 6: 月末整理——回路子系统边界自查
+### Task 6: End-of-month Cleanup — Circuit Subsystem Boundary Self-check
 
 **Files:**
-- Modify: `AGENTS.md`（结构地图加 `SimCore/Circuits/`）
+- Modify: `AGENTS.md` (add `SimCore/Circuits/` to the structure map)
 
-- [ ] **Step 1: 边界检查**：确认 `SimCore/Circuits/` 不引用 `Simulation`/`Structure`（编译器是独立子系统，与仿真的对接发生在第 3 个月、且只通过 `CompiledCircuit` 纯数据）。`grep -r "using Godot" SimCore/` 为空。
-- [ ] **Step 2: 全量回归**：`dotnet test` 全绿 + F5 试玩角色与建造无回归。
+- [ ] **Step 1: Boundary check**: confirm `SimCore/Circuits/` references neither `Simulation` nor `Structure` (the compiler is an independent subsystem; its integration with the simulation happens in Month 3, and only through the pure-data `CompiledCircuit`). `grep -r "using Godot" SimCore/` returns nothing.
+- [ ] **Step 2: Full regression**: `dotnet test` all green + F5 playtest shows no regression in character or building.
 - [ ] **Step 3: Commit** `docs: update AGENTS.md structure map for circuits subsystem`
 
-## 月末完成定义
+## End-of-month definition of done
 
-- 正式角色带动画在场景中行走建造
-- `CircuitGraphData` → `CircuitCompiler.Compile` → 校验错误全集可测且带节点定位；合法图产出确定性的指令数组（含分支跳转与循环回跳）
-- 回路子系统零 Godot 依赖、零 Simulation 依赖
+- The proper animated character walks and builds in the scene
+- `CircuitGraphData` → `CircuitCompiler.Compile` → the full set of validation errors is testable and carries node locations; valid graphs produce a deterministic instruction array (including branch jumps and the loop-back jump)
+- The circuit subsystem has zero Godot dependencies and zero Simulation dependencies
 
-## 明确不做（本月）
+## Explicitly out of scope (this month)
 
-- VM 执行（第 3 个月）
-- GraphEdit 编辑器 UI（第 3 个月）
-- 魔像实体与动作（第 3 个月）
+- VM execution (Month 3)
+- GraphEdit editor UI (Month 3)
+- Golem entities and actions (Month 3)
