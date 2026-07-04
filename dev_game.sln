@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimCore", "SimCore\SimCore.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimCore.Tests", "SimCore.Tests\SimCore.Tests.csproj", "{985499F6-3816-44DF-826A-CC5B8750F67A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "game", "game\game.csproj", "{CF06C8C4-97B9-49A9-8F91-4421B67C6DEB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{985499F6-3816-44DF-826A-CC5B8750F67A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{985499F6-3816-44DF-826A-CC5B8750F67A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{985499F6-3816-44DF-826A-CC5B8750F67A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF06C8C4-97B9-49A9-8F91-4421B67C6DEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF06C8C4-97B9-49A9-8F91-4421B67C6DEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF06C8C4-97B9-49A9-8F91-4421B67C6DEB}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF06C8C4-97B9-49A9-8F91-4421B67C6DEB}.Release|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
