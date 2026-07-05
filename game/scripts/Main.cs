@@ -18,6 +18,10 @@ public partial class Main : Node3D
             Current = true,
         });
         AddChild(BuildPlayer());
+        AddChild(new BuildController { Name = "BuildController" });
+        var crosshair = new Label { Text = "+" };
+        crosshair.SetAnchorsPreset(Control.LayoutPreset.Center);
+        GetNode<CanvasLayer>("UI").AddChild(crosshair);
     }
 
     public override void _Process(double delta)
