@@ -1,0 +1,12 @@
+<type>(<scope>): <summary> <ISSUE-ID>
+
+Refs <ISSUE-ID>
+
+# Examples:
+# feat(game): add animated ranger player TEO-14
+#
+# Refs TEO-14
+#
+# Use "Refs" by default so partial commits link to Linear without closing the issue.
+# Only use "Implements" / "Fixes" after tests pass, the work is complete, and
+# user acceptance criteria are met.
