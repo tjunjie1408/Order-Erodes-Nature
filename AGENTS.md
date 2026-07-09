@@ -18,6 +18,7 @@ Keep these boundaries strict:
 - `dotnet build` — compile all projects in `dev_game.sln`.
 - `dotnet test` — run the complete xUnit suite; required after every SimCore change.
 - `godot --path game` — run the Godot project once `game/` exists; use Godot 4.4+ .NET edition.
+- Local Godot engine path: `C:\Godot_v4.7-stable_mono_win64`. If `godot` is not on `PATH`, run the executable from this directory with `--path game`.
 
 ## Coding Style & Naming Conventions
 
