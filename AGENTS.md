@@ -18,6 +18,7 @@ Keep these boundaries strict:
 - `dotnet build` — compile all projects in `dev_game.sln`.
 - `dotnet test` — run the complete xUnit suite; required after every SimCore change.
 - `godot --path game` — run the Godot project once `game/` exists; use Godot 4.4+ .NET edition.
+- Local Godot engine path: `C:\Godot_v4.7-stable_mono_win64`. If `godot` is not on `PATH`, run the executable from this directory with `--path game`.
 
 ## Coding Style & Naming Conventions
 
@@ -29,7 +30,22 @@ Develop SimCore with TDD: write a failing xUnit test, implement the minimum beha
 
 ## Commit & Pull Request Guidelines
 
-Use focused conventional commits, matching history: `docs: ...`, `chore: ...`, `feat(sim): ...`, or `test(sim): ...`. Make one commit per plan task. Never add a `Co-Authored-By` trailer. Pull requests should identify the Linear issue, summarize architecture impact, report automated and manual verification, and include screenshots for visual Godot changes.
+Use focused conventional commits and make one commit per plan task.
+
+Every branch, commit, and pull request created for a Linear issue must include the Linear issue identifier:
+
+- Branch format: `codex/<issue-id>-<short-slug>`
+- Commit format: `<type>(<scope>): <summary> <issue-id>`
+- Pull request title: `<issue-id> <imperative summary>`
+- Pull request description must include the Linear issue ID, summary, tests run, and risks/manual QA notes.
+
+Examples:
+
+- `feat(signals): add double-buffered signal board MVP-039`
+- `test(circuits): lock vm suspension semantics MVP-016`
+- `fix(save): handle v1 migration crash MVP-043`
+
+Never add a `Co-Authored-By` trailer. Include screenshots for visual Godot changes.
 
 ## Assets and Scope
 
