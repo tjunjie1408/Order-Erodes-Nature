@@ -1,0 +1,33 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/PlayerController.cs" id="1_controller"]
+[ext_resource type="PackedScene" path="res://assets/characters/Male_Ranger_Animated.gltf" id="2_ranger"]
+[ext_resource type="Script" path="res://scripts/PlayerAnimator.cs" id="3_animator"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.4
+height = 1.8
+
+[node name="Player" type="CharacterBody3D"]
+position = Vector3(0, 1, 0)
+script = ExtResource("1_controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="ModelRoot" type="Node3D" parent="."]
+
+[node name="Male_Ranger_Animated" parent="ModelRoot" instance=ExtResource("2_ranger")]
+
+[node name="PlayerAnimator" type="Node" parent="."]
+script = ExtResource("3_animator")
+
+[node name="Yaw" type="Node3D" parent="."]
+position = Vector3(0, 1.5, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="Yaw"]
+spring_length = 5.0
+
+[node name="Camera3D" type="Camera3D" parent="Yaw/SpringArm3D"]
+current = true
