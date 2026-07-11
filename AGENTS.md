@@ -2,7 +2,7 @@
 
 ## Project Structure & Architecture
 
-`SimCore/` is the pure .NET 8 simulation library; `SimCore.Tests/` contains its xUnit tests. Design specifications and staged implementation plans live under `docs/superpowers/`. `docs/backlog.md` is the parking lot for ideas outside the active milestone. The planned `game/` directory is the Godot presentation layer.
+`SimCore/` is the pure .NET 8 simulation library; `SimCore/Circuits/` contains the independent circuit graph, compiler, and compiled instruction data contracts; `SimCore.Tests/` contains its xUnit tests. Design specifications and staged implementation plans live under `docs/superpowers/`. `docs/backlog.md` is the parking lot for ideas outside the active milestone. The planned `game/` directory is the Godot presentation layer.
 
 Keep these boundaries strict:
 
