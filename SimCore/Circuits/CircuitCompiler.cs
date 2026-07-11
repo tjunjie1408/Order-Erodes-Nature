@@ -370,7 +370,10 @@ public static class CircuitCompiler
                 foreach (var output in pair.Value.Definition.Outputs)
                 {
                     if (output.Kind == PortKind.Data)
-                        _registers.Add(new PortKey(pair.Key, output.Name), _nextRegister++);
+                    {
+                        _registers.Add(new PortKey(pair.Key, output.Name), _nextRegister);
+                        _nextRegister += output.Type == DataType.Vector ? 3 : 1;
+                    }
                 }
             }
         }
@@ -393,6 +396,7 @@ public static class CircuitCompiler
                 Instructions = _instructions.ToArray(),
                 RegisterCount = _nextRegister,
                 StartEntry = startEntry,
+                Sensors = GetSensors(),
             };
         }
 
@@ -499,7 +503,13 @@ public static class CircuitCompiler
                         GetInlineValue(node.Data, "value")));
                     break;
                 case "sensor_cargo":
-                    _instructions.Add(new Instruction(OpCode.ReadSensor, GetDataOutputRegister(nodeId, "count"), 0, 0, 0));
+                    _instructions.Add(new Instruction(OpCode.ReadSensor, 0, 0, GetDataOutputRegister(nodeId, "count"), 0));
+                    break;
+                case "sensor_find_nearest_resource":
+                    _instructions.Add(new Instruction(OpCode.FindNearestResource, 0, 0, GetDataOutputRegister(nodeId, "nearest"), 0));
+                    break;
+                case "sensor_nearest_storage":
+                    _instructions.Add(new Instruction(OpCode.FindNearestStorage, 0, 0, GetDataOutputRegister(nodeId, "nearest"), 0));
                     break;
                 case "data_compare":
                     _instructions.Add(new Instruction(
@@ -550,7 +560,10 @@ public static class CircuitCompiler
         private Instruction GetVectorActionInstruction(OpCode opCode, int nodeId)
         {
             if (_dataInputs.TryGetValue(new PortKey(nodeId, "target"), out var connection))
-                return new Instruction(opCode, GetDataOutputRegister(connection.FromNode, connection.FromPort), 0, 0, 0);
+            {
+                var baseRegister = GetDataOutputRegister(connection.FromNode, connection.FromPort);
+                return new Instruction(opCode, baseRegister, baseRegister + 1, baseRegister + 2, 0);
+            }
 
             return new Instruction(
                 opCode,
@@ -575,6 +588,28 @@ public static class CircuitCompiler
         private int GetDataOutputRegister(int nodeId, string portName)
         {
             return _registers[new PortKey(nodeId, portName)];
+        }
+
+        private SensorMask GetSensors()
+        {
+            var sensors = SensorMask.None;
+            foreach (var instruction in _instructions)
+            {
+                switch (instruction.Op)
+                {
+                    case OpCode.ReadSensor when instruction.A == 0:
+                        sensors |= SensorMask.Cargo;
+                        break;
+                    case OpCode.FindNearestResource:
+                        sensors |= SensorMask.NearestResource;
+                        break;
+                    case OpCode.FindNearestStorage:
+                        sensors |= SensorMask.NearestStorage;
+                        break;
+                }
+            }
+
+            return sensors;
         }
 
         private int? GetExecDestination(int nodeId, string portName)

@@ -70,6 +70,20 @@ public static class NodeCatalog
                 inputs: Ports(),
                 outputs: Ports(DataOut("count", DataType.Number))),
 
+            ["sensor_find_nearest_resource"] = Node(
+                "sensor_find_nearest_resource",
+                "Find Nearest Resource",
+                isEvent: false,
+                inputs: Ports(),
+                outputs: Ports(DataOut("nearest", DataType.Vector), DataOut("found", DataType.Bool))),
+
+            ["sensor_nearest_storage"] = Node(
+                "sensor_nearest_storage",
+                "Nearest Storage",
+                isEvent: false,
+                inputs: Ports(),
+                outputs: Ports(DataOut("nearest", DataType.Vector), DataOut("found", DataType.Bool))),
+
             ["test_passthrough"] = Node(
                 "test_passthrough",
                 "Test Passthrough (test-only)",
