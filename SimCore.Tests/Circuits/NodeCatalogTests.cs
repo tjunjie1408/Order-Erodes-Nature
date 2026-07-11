@@ -17,6 +17,8 @@ public sealed class NodeCatalogTests
         "data_const_number",
         "data_compare",
         "sensor_cargo",
+        "sensor_find_nearest_resource",
+        "sensor_nearest_storage",
     ];
 
     public static TheoryData<string, ExpectedPort[], ExpectedPort[]> Month2PortTable => new()
@@ -70,6 +72,16 @@ public sealed class NodeCatalogTests
             "sensor_cargo",
             [],
             [new ExpectedPort("count", PortKind.Data, DataType.Number)]
+        },
+        {
+            "sensor_find_nearest_resource",
+            [],
+            [new ExpectedPort("nearest", PortKind.Data, DataType.Vector), new ExpectedPort("found", PortKind.Data, DataType.Bool)]
+        },
+        {
+            "sensor_nearest_storage",
+            [],
+            [new ExpectedPort("nearest", PortKind.Data, DataType.Vector), new ExpectedPort("found", PortKind.Data, DataType.Bool)]
         },
     };
 

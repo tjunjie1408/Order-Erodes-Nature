@@ -37,7 +37,8 @@ public sealed class CompilerCodegenTests
         var compare = Assert.Single(circuit.Instructions.Where(instruction => instruction.Op == OpCode.Compare));
         var sensor = Assert.Single(circuit.Instructions.Where(instruction => instruction.Op == OpCode.ReadSensor));
 
-        Assert.Equal(0, sensor.B);
+        Assert.Equal(0, sensor.A);
+        Assert.Equal(compare.B, sensor.C);
         Assert.Equal(compare.A, jumpIfFalse.A);
         Assert.InRange(jumpIfFalse.B, 0, circuit.Instructions.Length - 1);
         Assert.Equal(2, circuit.Instructions.Count(instruction => instruction.Op == OpCode.Wait));
@@ -167,6 +168,28 @@ public sealed class CompilerCodegenTests
         Assert.True(circuit.Instructions[jumpIfFalseIndex].B < waitIndex);
         Assert.True(waitIndex < loadIndex);
         Assert.True(loadIndex < unloadIndex);
+    }
+
+    [Fact]
+    public void SensorMask_ReflectsUsedSensorsOnly()
+    {
+        var cargo = CircuitCompiler.Compile(Graph(
+            [Node(1, "event_start"), Node(2, "sensor_cargo"), Node(3, "action_wait")],
+            [Connection(1, "out", 3, "in"), Connection(2, "count", 3, "ticks")])).Circuit;
+        var nearestResource = CircuitCompiler.Compile(Graph(
+            [Node(1, "event_start"), Node(2, "sensor_find_nearest_resource"), Node(3, "action_move_to")],
+            [Connection(1, "out", 3, "in"), Connection(2, "nearest", 3, "target")])).Circuit;
+        var nearestStorage = CircuitCompiler.Compile(Graph(
+            [Node(1, "event_start"), Node(2, "sensor_nearest_storage"), Node(3, "action_move_to")],
+            [Connection(1, "out", 3, "in"), Connection(2, "nearest", 3, "target")])).Circuit;
+        var noSensor = CircuitCompiler.Compile(Graph(
+            [Node(1, "event_start"), Node(2, "action_load")],
+            [Connection(1, "out", 2, "in")])).Circuit;
+
+        Assert.Equal(SensorMask.Cargo, Assert.IsType<CompiledCircuit>(cargo).Sensors);
+        Assert.Equal(SensorMask.NearestResource, Assert.IsType<CompiledCircuit>(nearestResource).Sensors);
+        Assert.Equal(SensorMask.NearestStorage, Assert.IsType<CompiledCircuit>(nearestStorage).Sensors);
+        Assert.Equal(SensorMask.None, Assert.IsType<CompiledCircuit>(noSensor).Sensors);
     }
 
     private static CompiledCircuit CompileBranchGraph()

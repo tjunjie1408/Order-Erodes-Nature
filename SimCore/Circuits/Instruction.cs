@@ -13,6 +13,8 @@ public enum OpCode : byte
     Load,
     Unload,
     Wait,
+    FindNearestResource,
+    FindNearestStorage,
 }
 
 public readonly record struct Instruction(OpCode Op, int A, int B, int C, double Imm);
