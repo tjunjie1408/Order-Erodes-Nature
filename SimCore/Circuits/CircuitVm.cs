@@ -16,7 +16,7 @@ public sealed class CircuitVm
 
     public void LoadProgram(CompiledCircuit circuit)
     {
-        _instructions = circuit.Instructions;
+        _instructions = (Instruction[])circuit.Instructions.Clone();
         _startEntry = circuit.StartEntry;
         Registers = new double[circuit.RegisterCount];
         Reset();

@@ -148,6 +148,22 @@ public sealed class CircuitVmTests
     }
 
     [Fact]
+    public void LoadProgram_CopiesInstructionsBeforeExecuting()
+    {
+        var instructions = new Instruction[]
+        {
+            new(OpCode.LoadConst, 0, 0, 0, 1),
+            new(OpCode.Halt, 0, 0, 0, 0),
+        };
+        var vm = Load(instructions, registerCount: 1);
+        instructions[0] = new Instruction(OpCode.LoadConst, 0, 0, 0, 99);
+
+        vm.Tick(new VmIo(), new List<int>());
+
+        Assert.Equal(1, vm.Registers[0]);
+    }
+
+    [Fact]
     public void FindNearestResource_CopiesVectorAndFoundFlagToConsecutiveRegisters()
     {
         var vm = Load(new Instruction[]
