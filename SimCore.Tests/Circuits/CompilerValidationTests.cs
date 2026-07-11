@@ -244,6 +244,31 @@ public sealed class CompilerValidationTests
         Assert.Empty(result.Errors);
     }
 
+    [Fact]
+    public void Compile_AllowsTransitiveDataSuppliersForReachableBranchButRejectsUnusedSupplier()
+    {
+        var result = CircuitCompiler.Compile(Graph(
+            [
+                Node(1, "event_start"),
+                Node(2, "sensor_cargo"),
+                Node(3, "data_const_number", ("value", 5)),
+                Node(4, "data_compare"),
+                Node(5, "data_const_number", ("value", 99)),
+                Node(6, "flow_branch"),
+            ],
+            [
+                Connection(1, "out", 6, "in"),
+                Connection(2, "count", 4, "a"),
+                Connection(3, "value", 4, "b"),
+                Connection(4, "result", 6, "condition"),
+            ]));
+
+        Assert.DoesNotContain(result.Errors, error => error.NodeId == 2 && error.Code == "unreachable_node");
+        Assert.DoesNotContain(result.Errors, error => error.NodeId == 3 && error.Code == "unreachable_node");
+        Assert.DoesNotContain(result.Errors, error => error.NodeId == 4 && error.Code == "unreachable_node");
+        AssertError(result, 5, "unreachable_node");
+    }
+
     private static CircuitGraphData Graph(CircuitNodeData[] nodes, CircuitConnectionData[]? connections = null)
     {
         var graph = new CircuitGraphData { Nodes = [.. nodes] };
