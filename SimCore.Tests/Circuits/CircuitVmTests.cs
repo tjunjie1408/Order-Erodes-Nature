@@ -15,7 +15,7 @@ public sealed class CircuitVmTests
             new(OpCode.Halt, 0, 0, 0, 0),
         }, registerCount: 1);
         var io = new VmIo();
-        var enteredPcs = new List<int>();
+        var enteredPcs = EnteredPcs();
 
         vm.Tick(io, enteredPcs);
         Assert.Equal(VmStatus.Suspended, vm.Status);
@@ -43,7 +43,7 @@ public sealed class CircuitVmTests
         vm.Registers[1] = 2;
         vm.Registers[2] = 3;
         var io = new VmIo();
-        var enteredPcs = new List<int>();
+        var enteredPcs = EnteredPcs();
 
         vm.Tick(io, enteredPcs);
         Assert.Equal(VmStatus.Suspended, vm.Status);
@@ -70,7 +70,7 @@ public sealed class CircuitVmTests
     public void SelfJump_CrashesAfterInstructionBudgetAtCurrentProgramCounter()
     {
         var vm = Load(new[] { new Instruction(OpCode.Jump, 0, 0, 0, 0) });
-        var enteredPcs = new List<int>();
+        var enteredPcs = EnteredPcs();
 
         vm.Tick(new VmIo(), enteredPcs);
 
@@ -85,7 +85,7 @@ public sealed class CircuitVmTests
         var vm = Load(new[] { new Instruction(OpCode.Jump, 0, 0, 0, 0) }, registerCount: 1);
         vm.Registers[0] = 42;
 
-        vm.Tick(new VmIo(), new List<int>());
+        vm.Tick(new VmIo(), EnteredPcs());
         vm.Reset();
 
         Assert.Equal(VmStatus.Running, vm.Status);
@@ -104,7 +104,7 @@ public sealed class CircuitVmTests
             new(OpCode.Halt, 0, 0, 0, 0),
             new(OpCode.Halt, 0, 0, 0, 0),
         }, registerCount: 1);
-        var enteredPcs = new List<int>();
+        var enteredPcs = EnteredPcs();
 
         vm.Tick(new VmIo(), enteredPcs);
 
@@ -127,7 +127,7 @@ public sealed class CircuitVmTests
             new(OpCode.Halt, 0, 0, 0, 0),
         }, registerCount: 3);
 
-        vm.Tick(new VmIo(), new List<int>());
+        vm.Tick(new VmIo(), EnteredPcs());
 
         Assert.Equal(expected, vm.Registers[2]);
     }
@@ -142,7 +142,7 @@ public sealed class CircuitVmTests
         }, registerCount: 2);
         var io = new VmIo { SensorCargo = 17.5 };
 
-        vm.Tick(io, new List<int>());
+        vm.Tick(io, EnteredPcs());
 
         Assert.Equal(17.5, vm.Registers[1]);
     }
@@ -158,7 +158,7 @@ public sealed class CircuitVmTests
         var vm = Load(instructions, registerCount: 1);
         instructions[0] = new Instruction(OpCode.LoadConst, 0, 0, 0, 99);
 
-        vm.Tick(new VmIo(), new List<int>());
+        vm.Tick(new VmIo(), EnteredPcs());
 
         Assert.Equal(1, vm.Registers[0]);
     }
@@ -179,7 +179,7 @@ public sealed class CircuitVmTests
             NearestResourceFound = true,
         };
 
-        vm.Tick(io, new List<int>());
+        vm.Tick(io, EnteredPcs());
 
         Assert.Equal(new[] { 1d, 2d, 3d, 1d }, vm.Registers);
     }
@@ -200,9 +200,68 @@ public sealed class CircuitVmTests
             NearestStorageFound = false,
         };
 
-        vm.Tick(io, new List<int>());
+        vm.Tick(io, EnteredPcs());
 
         Assert.Equal(new[] { 4d, 5d, 6d, 0d }, vm.Registers);
+    }
+
+    [Fact]
+    public void Tick_RequiresEntryListCapacityForInstructionBudget()
+    {
+        var vm = Load(new[] { new Instruction(OpCode.Jump, 0, 0, 0, 0) });
+        var enteredPcs = new List<int>(CircuitVm.InstructionBudgetPerTick - 1);
+
+        Assert.Throws<ArgumentException>(() => vm.Tick(new VmIo(), enteredPcs));
+
+        Assert.Empty(enteredPcs);
+        Assert.Equal(VmStatus.Running, vm.Status);
+        Assert.Equal(0, vm.ProgramCounter);
+    }
+
+    [Fact]
+    public void Tick_WithPreallocatedEntryListDoesNotAllocate()
+    {
+        var warmupVm = Load(new[] { new Instruction(OpCode.Halt, 0, 0, 0, 0) });
+        warmupVm.Tick(new VmIo(), EnteredPcs());
+
+        var vm = Load(new[] { new Instruction(OpCode.Jump, 0, 0, 0, 0) });
+        var io = new VmIo();
+        var enteredPcs = EnteredPcs();
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+
+        vm.Tick(io, enteredPcs);
+
+        Assert.Equal(allocatedBefore, GC.GetAllocatedBytesForCurrentThread());
+        Assert.Equal(CircuitVm.InstructionBudgetPerTick, enteredPcs.Count);
+    }
+
+    [Fact]
+    public void ChainedHostActions_RequireAResultForEachRequestedAction()
+    {
+        var vm = Load(new Instruction[]
+        {
+            new(OpCode.Load, 0, 0, 0, 0),
+            new(OpCode.Unload, 0, 0, 0, 0),
+            new(OpCode.Halt, 0, 0, 0, 0),
+        });
+        var io = new VmIo();
+        var enteredPcs = EnteredPcs();
+
+        vm.Tick(io, enteredPcs);
+        Assert.Equal(ActionKind.Load, io.RequestedAction);
+
+        io.PendingActionResult = ActionResult.Done;
+        enteredPcs.Clear();
+        vm.Tick(io, enteredPcs);
+        Assert.Equal(ActionKind.Unload, io.RequestedAction);
+        Assert.Equal(ActionResult.InProgress, io.PendingActionResult);
+        Assert.Equal(VmStatus.Suspended, vm.Status);
+
+        enteredPcs.Clear();
+        vm.Tick(io, enteredPcs);
+        Assert.Equal(ActionKind.Unload, io.RequestedAction);
+        Assert.Equal(VmStatus.Suspended, vm.Status);
+        Assert.Empty(enteredPcs);
     }
 
     private static CircuitVm Load(Instruction[] instructions, int registerCount = 0)
@@ -215,5 +274,10 @@ public sealed class CircuitVmTests
             StartEntry = 0,
         });
         return vm;
+    }
+
+    private static List<int> EnteredPcs()
+    {
+        return new List<int>(CircuitVm.InstructionBudgetPerTick);
     }
 }

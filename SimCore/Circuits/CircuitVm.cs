@@ -32,8 +32,23 @@ public sealed class CircuitVm
         Status = VmStatus.Running;
     }
 
+    /// <summary>
+    /// Executes one VM tick.
+    /// </summary>
+    /// <param name="io">Host-provided sensor values and action state.</param>
+    /// <param name="enteredPcs">
+    /// Caller-owned instruction-entry buffer. It must have at least
+    /// <see cref="InstructionBudgetPerTick"/> unused slots before each call.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Thrown before execution when <paramref name="enteredPcs"/> cannot hold the
+    /// maximum number of instruction entries for one tick.
+    /// </exception>
     public void Tick(VmIo io, List<int> enteredPcs)
     {
+        if (enteredPcs.Capacity - enteredPcs.Count < InstructionBudgetPerTick)
+            throw new ArgumentException("The entry buffer must have space for the instruction budget.", nameof(enteredPcs));
+
         if (Status is VmStatus.Idle or VmStatus.Crashed)
             return;
 
@@ -161,6 +176,7 @@ public sealed class CircuitVm
         io.ActionX = x;
         io.ActionY = y;
         io.ActionZ = z;
+        io.PendingActionResult = ActionResult.InProgress;
         _activeAction = action;
         Status = VmStatus.Suspended;
     }
