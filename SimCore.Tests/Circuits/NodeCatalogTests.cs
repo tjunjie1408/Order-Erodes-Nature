@@ -76,7 +76,8 @@ public sealed class NodeCatalogTests
     [Fact]
     public void Catalog_ContainsExactlyMvpNodes()
     {
-        Assert.Equal(MvpNodeIds.Order(), NodeCatalog.All.Keys.Order());
+        Assert.Equal(MvpNodeIds.Order(), NodeCatalog.All.Keys.Where(id => id != "test_passthrough").Order());
+        Assert.Equal("Test Passthrough (test-only)", NodeCatalog.All["test_passthrough"].DisplayName);
     }
 
     [Theory]

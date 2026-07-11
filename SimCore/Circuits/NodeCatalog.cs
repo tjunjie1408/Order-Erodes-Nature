@@ -69,6 +69,13 @@ public static class NodeCatalog
                 isEvent: false,
                 inputs: Ports(),
                 outputs: Ports(DataOut("count", DataType.Number))),
+
+            ["test_passthrough"] = Node(
+                "test_passthrough",
+                "Test Passthrough (test-only)",
+                isEvent: false,
+                inputs: Ports(DataIn("value", DataType.Number, required: true)),
+                outputs: Ports(DataOut("value", DataType.Number))),
         };
 
         return new ReadOnlyDictionary<string, NodeDef>(nodes);
